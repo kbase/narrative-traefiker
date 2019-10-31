@@ -1,0 +1,35 @@
+version: "3.3"
+
+services:
+  traefik:
+    image: "traefik:v2.0.1"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--metrics=true"
+      - "--metrics.prometheus=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  authsvc:
+    image: "kbase/traefik_authsvc:latest"
+    hostname: "authsvc"
+    volumes:
+#      - "./app.py:/app/app.py"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    ports:
+      - "8000:80"
+    environment:
+      - hostname=Stephens-MBP.dhcp.lbnl.us
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authsvc.rule=Host(\"Stephens-MBP.dhcp.lbnl.us\") && PathPrefix(\"/narrative\")"
+      - "traefik.http.routers.authsvc.entrypoints=web"
+
