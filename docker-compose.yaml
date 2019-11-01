@@ -1,11 +1,15 @@
-version: "3.3"
+version: "3.5"
+
+networks:
+  narrative:
+    name: traefik_narrative
 
 services:
   traefik:
     image: "traefik:v2.0.1"
     container_name: "traefik"
     command:
-      - "--log.level=DEBUG"
+      - "--log.level=INFO"
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
@@ -17,19 +21,24 @@ services:
       - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - narrative
 
   authsvc:
     image: "kbase/traefik_authsvc:latest"
     hostname: "authsvc"
     volumes:
-#      - "./app.py:/app/app.py"
+      - "./app.py:/app/app.py"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     ports:
       - "8000:80"
     environment:
-      - hostname=Stephens-MBP.dhcp.lbnl.us
+       - hostname=localhost
+       - dock_net=traefik_narrative
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.authsvc.rule=Host(\"Stephens-MBP.dhcp.lbnl.us\") && PathPrefix(\"/narrative\")"
-      - "traefik.http.routers.authsvc.entrypoints=web"
+      - traefik.enable=true
+      - traefik.http.routers.authsvc.rule=Host("localhost") && PathPrefix("/narrative")
+      - traefik.http.routers.authsvc.entrypoints=web
+    networks:
+      - narrative
 
