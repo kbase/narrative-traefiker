@@ -13,7 +13,9 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "session_cookie": "narrative_session",
        "kbase_cookie": "kbase_session",
        "base_url": "/narrative/",
-       "container_name": "narrative_{}"}
+       "container_name": "narrative_{}",
+       "dock_net": "narrative-traefiker_default",
+       "reload_secs": 5}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
@@ -31,18 +33,18 @@ errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
 random.seed()
 
 
-def reload_msg(narrative):
+def reload_msg(narrative, wait=0):
     msg = """
 <html>
 <head>
-<META HTTP-EQUIV="refresh" CONTENT="5;URL='/narrative/{}'">
+<META HTTP-EQUIV="refresh" CONTENT="{};URL='/narrative/{}'">
 </head>
 <body>
-Starting container - will reload in 5 seconds
+Starting container - will reload shortly
 </body>
 </html>
 """
-    return msg.format(narrative)
+    return msg.format(wait, narrative)
 
 
 def container_err_msg(message):
@@ -102,14 +104,15 @@ def get_container(userid, request, narrative):
     """
     # See if there is an existing session for this user, if so, reuse it
     session = check_session(userid)
+    resp = flask.Response(status=200)
     if session is None:
         print("Starting container for user " + userid)
-        resp = flask.Response(reload_msg(narrative), status=200)
+        resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = base64.b64encode(str(random.getrandbits(128)))
         labels = dict()
         labels["traefik.enable"] = "True"
         labels["session_id"] = session
-        cookie = "{}={}".format(cfg['narrative_session'], session)
+        cookie = "{}={}".format(cfg['session_cookie'], session)
         labels["traefik.http.routers." + userid + ".rule"] = "Host(\"" + cfg['hostname'] + "\") && PathPrefix(\"/narrative\")"
         labels["traefik.http.routers." + userid + ".rule"] += " && HeadersRegexp(\"Cookie\",\"" + cookie + "\")"
         labels["traefik.http.routers." + userid + ".entrypoints"] = "web"
@@ -117,23 +120,32 @@ def get_container(userid, request, narrative):
         # an error state, and overwrite the response with an error response
         try:
             name = cfg['container_name'].format(userid)
-            container = client.containers.run('kbase/narrative', detach=True, labels=labels, hostname=userid,
-                                              auto_remove=True, name=name, network="traefik_poc_default")
+            print("Running new container: ", cfg['image'], labels, userid, name, cfg['dock_net'])
+            container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
+                                              auto_remove=True, name=name, network=cfg["dock_net"])
         except docker.errors.ImageNotFound as err:
-            resp = flask.Response(container_err_msg(repr(err)), status=200)
+            resp.set_data(container_err_msg(repr(err)))
+            resp.status = 500
             session = None
         except docker.errors.APIError as err:
             # If there is a race condition because a container has already started, then this should catch it.
             # Try to get the session for it, if that fails then bail with error message
             session = check_session(userid)
             if session is None:
-                resp = flask.Response(container_err_msg(repr(err)), status=200)
+                resp.set_data(container_err_msg(repr(err)))
+                resp.status = 200
+            else:
+                print("Found previous session {} for {}".format(session, userid))
         if session is not None:
             if container.status != u"created":
                 msg = container_err_msg("Problem starting container - container status '{}'".format(container.status))
-                resp = flask.Response(msg, status=200)
+                resp.set_data(msg)
+                resp.status = 500
+    else:
+        print("Found previous session {} for {}".format(session, userid))
+        resp.set_data(reload_msg(narrative))
     if session is not None:
-        cookie = "{}={}".format(cfg['narrative_session'], session)
+        cookie = "{}={}".format(cfg['session_cookie'], session)
         print("Routing based on " + cookie)
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
