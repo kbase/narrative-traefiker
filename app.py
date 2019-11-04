@@ -13,7 +13,7 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "session_cookie": "narrative_session",
        "kbase_cookie": "kbase_session",
        "base_url": "/narrative/",
-       "container_name": "narrative_{}",
+       "container_name": "narrative-{}",
        "dock_net": "narrative-traefiker_default",
        "reload_secs": 5}
 
