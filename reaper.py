@@ -53,7 +53,8 @@ def get_active_traefik_svcs():
                     try:
                         svc_container = client.containers.get(name)
                     except docker.errors.NotFound:
-                        print("Service {} not found (might be part of core stack or reaped already)".format(name))
+                        if cfg['debug']:
+                            print("Service {} not found (might be part of core stack or reaped already)".format(name))
                         continue
                     # Filter out any container that isn't the image type we are reaping
                     if (cfg['narr_img'] in svc_container.image.attrs["RepoTags"]):
