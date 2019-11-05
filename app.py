@@ -168,7 +168,7 @@ def get_container(userid, request, narrative):
 
 def error_response(auth_status, request):
     """
-    Return an error response that is appropriate for the message in the auth_status dict.
+    Return an flask response that is appropriate for the message in the auth_status dict.
     """
     resp = flask.Response(errors[auth_status["error"]])
     if auth_status['error'] == 'no_cookie':
@@ -187,7 +187,7 @@ def error_response(auth_status, request):
 def hello(narrative):
     """
     Main handler for the auth service. Validate the request, get the container is should be routed
-    to and return a cookie that will result in traefik routing to the right place for subsequent
+    to and return a response that will result in traefik routing to the right place for subsequent
     requests. Returns an error in the flask response if requirements are not met or if an error
     occurs
     """
