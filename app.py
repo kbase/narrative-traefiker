@@ -4,6 +4,12 @@ import docker
 import base64
 import os
 import random
+import json
+
+# Loglevel related constants
+LOG_DEBUG = 2
+LOG_INFO = 1
+LOG_CRITICAL = 0
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": "unix://var/run/docker.sock",
@@ -15,7 +21,9 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "base_url": "/narrative/",
        "container_name": "narrative-{}",
        "dock_net": "narrative-traefiker_default",
-       "reload_secs": 5}
+       "reload_secs": 5,
+       "log_level": LOG_INFO,
+       "log_dest": None}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
@@ -29,6 +37,7 @@ app = flask.Flask(__name__)
 errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
           'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
           'request_error': "Error querying {}: ".format(cfg['auth2'])}
+
 
 # Seed the random number generator based on default (time)
 random.seed()
@@ -60,6 +69,16 @@ please contact KBase support staff.
 </html>
 """
     return msg.format(message)
+
+
+def log(loglevel, jsonlog):
+    """
+    Log messages in JSON format for easy parsing. Uses cfg['log_dest'] to determine where
+    to log the messages, and cfg['log_level'] to determine if debug messages should be filtered out
+    """
+    if loglevel <= cfg['log_level']:
+        jsonlog['log_level'] = loglevel
+        print(json.dumps(jsonlog, indent=2))
 
 
 def valid_request(request):
@@ -100,7 +119,7 @@ def check_session(userid):
     return(container.labels['session_id'])
 
 
-def start_docker(session, userid):
+def start_docker(session, userid, request):
     """
     Attempts to start a docker container. Takes the suggested session id and a username
     Returns the final session id ( in case there was a race condition and another session was already started).
@@ -118,9 +137,10 @@ def start_docker(session, userid):
     # an error state, and overwrite the response with an error response
     try:
         name = cfg['container_name'].format(userid)
-        print("Running new container: ", cfg['image'], labels, userid, name, cfg['dock_net'])
         container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
                                           auto_remove=True, name=name, network=cfg["dock_net"])
+        log(LOG_INFO, {"message": "new_container", "image": cfg['image'], 'userid': userid, "name": name,
+                       "session_id": session, "client_ip": request.remote_addr})
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
         # Try to get the session for it, if that fails then bail with error message
@@ -128,7 +148,8 @@ def start_docker(session, userid):
         if session is None:
             raise(err)
         else:
-            print("Found previous session {} for {}".format(session, userid))
+            log(LOG_INFO, {"message": "previous_session", "userid": userid, "name": name, "session_id": session,
+                           "client_ip": request.remote_addr})
             container = client.get_container(name)
     if container.status != u"created":
         raise(Exception("Error starting container: container status {}".format(container.status)))
@@ -146,13 +167,15 @@ def get_container(userid, request, narrative):
     session = check_session(userid)
     resp = flask.Response(status=200)
     if session is None:
-        print("Starting container for user " + userid)
+        log(LOG_DEBUG, {"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = base64.b64encode(str(random.getrandbits(128)))
         try:
             # Try to start the container, session may be updated due to circumstances
-            session = start_docker(session, userid)
+            session = start_docker(session, userid, request)
         except Exception as err:
+            log(LOG_CRITICAL, {"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
+                               "exception": repr(err)})
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
             session = None
@@ -161,7 +184,7 @@ def get_container(userid, request, narrative):
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        print("Routing based on " + cookie)
+        log(LOG_DEBUG, {"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
@@ -180,6 +203,8 @@ def error_response(auth_status, request):
     if auth_status['error'] == 'request_error':
         resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
+    log(LOG_INFO, {"message": "auth_error", "client_ip": request.remote_addr,
+                   "error": auth_status['error'], "detail": auth_status.get('message', "")})
     return(resp)
 
 
