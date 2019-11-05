@@ -27,7 +27,7 @@ app = flask.Flask(__name__)
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
 errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
-          'auth_error': "Session cookie failed to validation at {}".format(cfg['auth2'])}
+          'auth_error': "Session cookie failed validation at {}".format(cfg['auth2'])}
 
 # Seed the random number generator based on default (time)
 random.seed()
@@ -95,6 +95,41 @@ def check_session(userid):
     return(container.labels['session_id'])
 
 
+def start_docker(session, userid):
+    """
+    Attempts to start a docker container. Takes the suggested session id and a username
+    Returns the final session id ( in case there was a race condition and another session was already started).
+    Will throw an exception if there was any issue starting the container other than the race condition we're
+    already trying to handle
+    """
+    labels = dict()
+    labels["traefik.enable"] = "True"
+    labels["session_id"] = session
+    cookie = "{}={}".format(cfg['session_cookie'], session)
+    labels["traefik.http.routers." + userid + ".rule"] = "Host(\"" + cfg['hostname'] + "\") && PathPrefix(\""+cfg["base_url"]+"\")"
+    labels["traefik.http.routers." + userid + ".rule"] += " && HeadersRegexp(\"Cookie\",\"" + cookie + "\")"
+    labels["traefik.http.routers." + userid + ".entrypoints"] = "web"
+    # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
+    # an error state, and overwrite the response with an error response
+    try:
+        name = cfg['container_name'].format(userid)
+        print("Running new container: ", cfg['image'], labels, userid, name, cfg['dock_net'])
+        container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
+                                          auto_remove=True, name=name, network=cfg["dock_net"])
+    except docker.errors.APIError as err:
+        # If there is a race condition because a container has already started, then this should catch it.
+        # Try to get the session for it, if that fails then bail with error message
+        session = check_session(userid)
+        if session is None:
+            raise(err)
+        else:
+            print("Found previous session {} for {}".format(session, userid))
+            container = client.get_container(name)
+    if container.status != u"created":
+        raise(Exception("Error starting container: container status {}".format(container.status)))
+    return(session)
+
+
 def get_container(userid, request, narrative):
     """
     Given the request object and the username from validating the token, either find or spin up
@@ -109,41 +144,15 @@ def get_container(userid, request, narrative):
         print("Starting container for user " + userid)
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = base64.b64encode(str(random.getrandbits(128)))
-        labels = dict()
-        labels["traefik.enable"] = "True"
-        labels["session_id"] = session
-        cookie = "{}={}".format(cfg['session_cookie'], session)
-        labels["traefik.http.routers." + userid + ".rule"] = "Host(\"" + cfg['hostname'] + "\") && PathPrefix(\"/narrative\")"
-        labels["traefik.http.routers." + userid + ".rule"] += " && HeadersRegexp(\"Cookie\",\"" + cookie + "\")"
-        labels["traefik.http.routers." + userid + ".entrypoints"] = "web"
-        # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
-        # an error state, and overwrite the response with an error response
         try:
-            name = cfg['container_name'].format(userid)
-            print("Running new container: ", cfg['image'], labels, userid, name, cfg['dock_net'])
-            container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
-                                              auto_remove=True, name=name, network=cfg["dock_net"])
-        except docker.errors.ImageNotFound as err:
+            # Try to start the container, session may be updated due to circumstances
+            session = start_docker(session, userid)
+        except Exception as err:
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
             session = None
-        except docker.errors.APIError as err:
-            # If there is a race condition because a container has already started, then this should catch it.
-            # Try to get the session for it, if that fails then bail with error message
-            session = check_session(userid)
-            if session is None:
-                resp.set_data(container_err_msg(repr(err)))
-                resp.status = 200
-            else:
-                print("Found previous session {} for {}".format(session, userid))
-        if session is not None:
-            if container.status != u"created":
-                msg = container_err_msg("Problem starting container - container status '{}'".format(container.status))
-                resp.set_data(msg)
-                resp.status = 500
     else:
-        print("Found previous session {} for {}".format(session, userid))
-        resp.set_data(reload_msg(narrative))
+        resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
         print("Routing based on " + cookie)
@@ -155,7 +164,11 @@ def error_response(auth_status, request):
     """
     Return an error response that is appropriate for the message in the auth_status dict.
     """
-    resp = flask.Response()
+    resp = flask.Response(auth_status["message"])
+    if auth_status['message'] == errors['no_cookie']:
+        resp.status_code = 401
+    if auth_status['message'] == errors['auth_error']:
+        resp.status_code = 403
     return(resp)
 
 
