@@ -99,7 +99,8 @@ def reaper_loop(narr_activity):
 
 
 if __name__ == '__main__':
-    print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval\n".format(cfg["timeout_secs"], cfg["sleep"]))
+    print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval".format(cfg["timeout_secs"], cfg["sleep"]))
+    print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
     narr_activity = dict()
     # Allow the USR1 signal to be used to dump the narrative status dictionary
 
