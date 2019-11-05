@@ -27,7 +27,8 @@ app = flask.Flask(__name__)
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
 errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
-          'auth_error': "Session cookie failed validation at {}".format(cfg['auth2'])}
+          'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
+          'request_error': "Error querying {}: ".format(cfg['auth2'])}
 
 # Seed the random number generator based on default (time)
 random.seed()
@@ -64,20 +65,24 @@ please contact KBase support staff.
 def valid_request(request):
     """
     Validate request has a legit auth token and return a dictionary that has a userid field if
-    it is legit, otherwise return the error message in the message field
+    it is legit, otherwise return the error type in the error field
     """
     auth_status = dict()
     if cfg['kbase_cookie'] not in request.cookies:
-        auth_status['message'] = errors['no_cookie']
+        auth_status['error'] = 'no_cookie'
     else:
         token = request.cookies[cfg['kbase_cookie']]
-        r = requests.get(cfg['auth2'], headers={'Authorization': token})
-        authresponse = r.json()
-        if r.status_code == 200:
-            auth_status['userid'] = authresponse['user']
-        else:
-            auth_status['message'] = errors['auth_error']
-            auth_status['details'] = authresponse['error']['message']
+        try:
+            r = requests.get(cfg['auth2'], headers={'Authorization': token})
+            authresponse = r.json()
+            if r.status_code == 200:
+                auth_status['userid'] = authresponse['user']
+            else:
+                auth_status['error'] = 'auth_error'
+                auth_status['message'] = authresponse['error']['message']
+        except Exception as err:
+            auth_status['error'] = "request_error"
+            auth_status['message'] = repr(err)
     return(auth_status)
 
 
@@ -152,6 +157,7 @@ def get_container(userid, request, narrative):
             resp.status = 500
             session = None
     else:
+        # Session already exists, don't pause before reloading
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
@@ -164,10 +170,15 @@ def error_response(auth_status, request):
     """
     Return an error response that is appropriate for the message in the auth_status dict.
     """
-    resp = flask.Response(auth_status["message"])
-    if auth_status['message'] == errors['no_cookie']:
+    resp = flask.Response(errors[auth_status["error"]])
+    if auth_status['error'] == 'no_cookie':
+        resp = flask.Response(errors['no_cookie'])
         resp.status_code = 401
-    if auth_status['message'] == errors['auth_error']:
+    if auth_status['error'] == 'auth_error':
+        resp = flask.Response(errors['auth_error']+auth_status['message'])
+        resp.status_code = 403
+    if auth_status['error'] == 'request_error':
+        resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
     return(resp)
 
