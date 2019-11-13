@@ -9,7 +9,7 @@ import logging
 import structlog
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
-from structlog.stdlib import filter_by_level
+from structlog.stdlib import filter_by_level, add_logger_name, add_log_level
 import sys
 
 
@@ -25,7 +25,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "dock_net": u"narrative-traefiker_default",
        "reload_secs": 5,
        "log_level": logging.DEBUG,
-       "log_dest": None}
+       "log_dest": None,
+       "log_name": u"traefiker"}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
@@ -51,8 +52,8 @@ structlog.configure(
     wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
 )
-log = wrap_logger(logging.getLogger(__name__),
-                  processors=[filter_by_level, JSONRenderer(indent=1, sort_keys=True)])
+log = wrap_logger(logging.getLogger(cfg['log_name']),
+                  processors=[filter_by_level, add_logger_name, add_log_level, JSONRenderer(indent=1, sort_keys=True)])
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -180,7 +181,7 @@ def get_container(userid, request, narrative):
     if session is None:
         log.debug(message="new_session", userid=userid, client_ip=request.remote_addr)
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
-        session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode("ASCII")
+        session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode()
         try:
             # Try to start the container, session may be updated due to circumstances
             session = start_docker(session, userid, request)
