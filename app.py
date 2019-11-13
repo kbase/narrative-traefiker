@@ -4,25 +4,27 @@ import docker
 import base64
 import os
 import random
-import json
+# import json
+import logging
+import structlog
+from structlog import wrap_logger
+from structlog.processors import JSONRenderer
+from structlog.stdlib import filter_by_level
+import sys
 
-# Loglevel related constants
-LOG_DEBUG = 2
-LOG_INFO = 1
-LOG_CRITICAL = 0
 
 # Setup default configuration values, overriden by values from os.environ later
-cfg = {"docker_url": "unix://var/run/docker.sock",
-       "hostname": "localhost",
-       "auth2": "https://ci.kbase.us/services/auth/api/V2/token",
-       "image": "kbase/narrative:latest",
-       "session_cookie": "narrative_session",
-       "kbase_cookie": "kbase_session",
-       "base_url": "/narrative/",
-       "container_name": "narrative-{}",
-       "dock_net": "narrative-traefiker_default",
+cfg = {"docker_url": u"unix://var/run/docker.sock",
+       "hostname": u"localhost",
+       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
+       "image": u"kbase/narrative:latest",
+       "session_cookie": u"narrative_session",
+       "kbase_cookie": u"kbase_session",
+       "base_url": u"/narrative/",
+       "container_name": u"narrative-{}",
+       "dock_net": u"narrative-traefiker_default",
        "reload_secs": 5,
-       "log_level": LOG_INFO,
+       "log_level": logging.DEBUG,
        "log_dest": None}
 
 for cfg_item in cfg.keys():
@@ -31,6 +33,26 @@ for cfg_item in cfg.keys():
 
 client = docker.DockerClient(base_url=cfg['docker_url'])
 app = flask.Flask(__name__)
+
+logging.basicConfig(stream=sys.stdout, format="%(message)s", level=cfg['log_level'])
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.stdlib.render_to_log_kwargs,
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+log = wrap_logger(logging.getLogger(__name__),
+                  processors=[filter_by_level, JSONRenderer(indent=1, sort_keys=True)])
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -69,16 +91,6 @@ please contact KBase support staff.
 </html>
 """
     return msg.format(message)
-
-
-def log(loglevel, jsonlog):
-    """
-    Log messages in JSON format for easy parsing. Uses cfg['log_dest'] to determine where
-    to log the messages, and cfg['log_level'] to determine if debug messages should be filtered out
-    """
-    if loglevel <= cfg['log_level']:
-        jsonlog['log_level'] = loglevel
-        print(json.dumps(jsonlog, indent=2))
 
 
 def valid_request(request):
@@ -127,20 +139,20 @@ def start_docker(session, userid, request):
     already trying to handle
     """
     labels = dict()
-    labels["traefik.enable"] = "True"
+    labels["traefik.enable"] = u"True"
     labels["session_id"] = session
-    cookie = "{}={}".format(cfg['session_cookie'], session)
-    labels["traefik.http.routers." + userid + ".rule"] = "Host(\"" + cfg['hostname'] + "\") && PathPrefix(\""+cfg["base_url"]+"\")"
-    labels["traefik.http.routers." + userid + ".rule"] += " && HeadersRegexp(\"Cookie\",\"" + cookie + "\")"
-    labels["traefik.http.routers." + userid + ".entrypoints"] = "web"
+    cookie = u"{}={}".format(cfg['session_cookie'], session)
+    labels["traefik.http.routers." + userid + ".rule"] = u"Host(\"" + cfg['hostname'] + u"\") && PathPrefix(\""+cfg["base_url"]+u"\")"
+    labels["traefik.http.routers." + userid + ".rule"] += u" && HeadersRegexp(\"Cookie\",\"" + cookie + u"\")"
+    labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
     try:
         name = cfg['container_name'].format(userid)
         container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
                                           auto_remove=True, name=name, network=cfg["dock_net"])
-        log(LOG_INFO, {"message": "new_container", "image": cfg['image'], 'userid': userid, "name": name,
-                       "session_id": session, "client_ip": request.remote_addr})
+        log.info(message="new_container", image=cfg['image'], userid=userid, name=name,
+                 session_id=session, client_ip=request.remote_addr)
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
         # Try to get the session for it, if that fails then bail with error message
@@ -148,8 +160,7 @@ def start_docker(session, userid, request):
         if session is None:
             raise(err)
         else:
-            log(LOG_INFO, {"message": "previous_session", "userid": userid, "name": name, "session_id": session,
-                           "client_ip": request.remote_addr})
+            log.info(message="previous_session", userid=userid, name=name, session_id=session, client_ip=request.remote_addr)
             container = client.get_container(name)
     if container.status != u"created":
         raise(Exception("Error starting container: container status {}".format(container.status)))
@@ -167,15 +178,15 @@ def get_container(userid, request, narrative):
     session = check_session(userid)
     resp = flask.Response(status=200)
     if session is None:
-        log(LOG_DEBUG, {"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
+        log.debug(message="new_session", userid=userid, client_ip=request.remote_addr)
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
-        session = base64.b64encode(str(random.getrandbits(128)))
+        session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode("ASCII")
         try:
             # Try to start the container, session may be updated due to circumstances
             session = start_docker(session, userid, request)
         except Exception as err:
-            log(LOG_CRITICAL, {"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
-                               "exception": repr(err)})
+            log.critical(message="start_container_exception", userid=userid, client_ip=request.remote_addr,
+                         exception=repr(err))
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
             session = None
@@ -184,7 +195,7 @@ def get_container(userid, request, narrative):
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        log(LOG_DEBUG, {"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
+        log.debug(message="session_cookie", userid=userid, client_ip=request.remote_addr, cookie=cookie)
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
@@ -203,9 +214,17 @@ def error_response(auth_status, request):
     if auth_status['error'] == 'request_error':
         resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
-    log(LOG_INFO, {"message": "auth_error", "client_ip": request.remote_addr,
-                   "error": auth_status['error'], "detail": auth_status.get('message', "")})
+    log.info(message="auth_error", client_ip=request.remote_addr, error=auth_status['error'],
+             detail=auth_status.get('message', ""))
     return(resp)
+
+
+def log_handler(dest):
+    """
+    Takes as input a string that is either a filename, or else socket specification of of the form
+    "tcp:///host:port"
+    An additional log handler will be created that directs log output to this destination
+    """
 
 
 @app.route(cfg['base_url'] + '<path:narrative>')
@@ -226,4 +245,5 @@ def hello(narrative):
 
 
 if __name__ == '__main__':
+
     app.run()
