@@ -280,27 +280,52 @@ def start_rancher(session, userid, request):
                             u'vcpu': 1,
                             u'volumeDriver': None,
                             u'workingDir': None},
-                        u'name': u'narrative-sychan',
+                        u'name': None,
                         u'removed': None,
                         u'scale': 1,
                         u'secondaryLaunchConfigs': [],
                         u'selectorContainer': None,
                         u'selectorLink': None,
-                        u'stackId': u'1st795',
+                        u'stackId': None,
                         u'startOnCreate': True,
                         u'type': u'service',
                         u'uuid': None,
                         u'vip': None}
+    name = cfg['container_name'].format(userid)
+    cookie = u"{}={}".format(cfg['session_cookie'], session)
     labels = dict()
+    labels["io.rancher.container.pull_image"] = u"always"
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
-    cookie = u"{}={}".format(cfg['session_cookie'], session)
-    labels["traefik.http.routers." + userid + ".rule"] = u"Host(\"" + cfg['hostname'] + u"\") && PathPrefix(\""+cfg["base_url"]+u"\")"
-    labels["traefik.http.routers." + userid + ".rule"] += u" && HeadersRegexp(\"Cookie\",\"" + cookie + u"\")"
+    rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",\"{}\")"
+    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], cfg["base_url"], cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
+    container_config['launchConfig']['name'] = name
+    container_config['name'] = name
+    container_config['stackId'] = cfg['rancher_stack_id']
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
+    try:
+        r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
+        log.info(message="new_container", image=cfg['image'], userid=userid, name=name, session_id=session, client_ip="127.0.0.1")  # request.remote_addr)
+        if not r.ok:
+            msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
+            log.error(msg)
+            raise(Exception(msg))
+    except Exception as ex:
+        # If there is a race condition because a container has already started, then this should catch it.
+        # Try to get the session for it, if that fails then bail with error message
+        # session = check_session(userid)
+        # if session is None:
+        #    raise(err)
+        # else:
+        #    log.info(message="previous_session", userid=userid, name=name, session_id=session, client_ip=request.remote_addr)
+        #    container = client.get_container(name)
+        raise(ex)
+    # if container.status != u"created":
+    #    raise(Exception("Error starting container: container status {}".format(container.status)))
+    return(session)
 
 
 def find_stack():
