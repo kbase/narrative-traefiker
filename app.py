@@ -126,18 +126,53 @@ def valid_request(request):
     return(auth_status)
 
 
-def check_session(userid):
+def check_session_docker(userid):
     """
     Check to see if we already have a container for this user by trying to pull the container object
     for the userid
     """
     try:
-        container = client.containers.get(cfg['container_name'].format(userid))
+        name = cfg['container_name'].format(userid)
+        container = client.containers.get(name)
+        session_id = container.labels['session_id']
     except docker.errors.NotFound:
-        return(None)
-    except docker.errors.APIErrors:
-        return(None)  # This is stubbed out for now
-    return(container.labels['session_id'])
+        session_id = None
+    except docker.errors.APIErrors as err:
+        msg = "Docker APIError thrown while searching for container name {} : {}".format(name, str(err))
+        log.error(message=msg, name=name, exception=str(err))
+        session_id = None
+    return(session_id)
+
+
+def check_session_rancher(userid):
+    """
+    Check to see if we already have a container for this user by trying to pull the container object
+    for the userid
+    """
+    try:
+        name = cfg['container_name'].format(userid)
+        url = "{}/service?name={}".format(cfg["rancher_env_url"], name)
+        r = requests.get(url, auth=(cfg["rancher_user"], cfg["rancher_password"]))
+        if not r.ok:
+            msg = "Error response code from rancher API while searching for container name {} : {}".format(name, r.status_code)
+            log.error(message=msg, status_code=r.status_code, name=name, response_body=r.text)
+            raise(Exception(msg))
+        res = r.json()
+        svcs = res['data']
+        if len(svcs) == 0:
+            log.debug(message="No previous session found", name=name, userid=userid)
+            session_id = None
+        else:
+            session_id = svcs[0]['launchConfig']['labels']['session_id']
+            log.debug(message="Found existing session", session_id=session_id, userid=userid)
+            if len(svcs) > 1:
+                uuids = [svc['uuid'] for svc in svcs]
+                log.warning(message="Found multiple session matches against container name", userid=userid,
+                            name=name, rancher_uuids=uuids)
+    except Exception as ex:
+        log.debug(message="Error trying to find existing session", exception=format(str(ex)), userid=userid)
+        raise(ex)
+    return(session_id)
 
 
 def start_docker(session, userid, request):
@@ -165,7 +200,7 @@ def start_docker(session, userid, request):
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
         # Try to get the session for it, if that fails then bail with error message
-        session = check_session(userid)
+        session = check_session_docker(userid)
         if session is None:
             raise(err)
         else:
@@ -342,11 +377,11 @@ def find_stack():
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
     env_endpoint = x[0]
-    print("Found environment endpoint: {}".format(env_endpoint))
+    log.info(message="Found environment endpoint: {}".format(env_endpoint))
     r = requests.get(env_endpoint+"/stacks", auth=(cfg['rancher_user'], cfg['rancher_password']))
     resp = r.json()
     x = [stack['id'] for stack in resp['data'] if stack['name'].lower() == stack_name.lower()]
-    print("Found stack id: {}".format(x[0]))
+    log.info(message="Found stack id: {}".format(x[0]))
     return({"url": env_endpoint, "stack_id": x[0]})
 
 
@@ -358,7 +393,7 @@ def get_container(userid, request, narrative):
     message that reloads the page so that traefik reroutes to the right place
     """
     # See if there is an existing session for this user, if so, reuse it
-    session = check_session(userid)
+    session = check_session_rancher(userid)
     resp = flask.Response(status=200)
     if session is None:
         log.debug(message="new_session", userid=userid, client_ip=request.remote_addr)
@@ -366,7 +401,7 @@ def get_container(userid, request, narrative):
         session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode()
         try:
             # Try to start the container, session may be updated due to circumstances
-            session = start_docker(session, userid, request)
+            session = start_rancher(session, userid, request)
         except Exception as err:
             log.critical(message="start_container_exception", userid=userid, client_ip=request.remote_addr,
                          exception=repr(err))
@@ -400,31 +435,6 @@ def error_response(auth_status, request):
     log.info(message="auth_error", client_ip=request.remote_addr, error=auth_status['error'],
              detail=auth_status.get('message', ""))
     return(resp)
-
-
-def log_handler(dest):
-    """
-    Takes as input a string that is either a filename, or else socket specification of of the form
-    "tcp:///host:port"
-    An additional log handler will be created that directs log output to this destination
-    """
-
-
-@app.route(cfg['base_url'] + '<path:narrative>')
-def hello(narrative):
-    """
-    Main handler for the auth service. Validate the request, get the container is should be routed
-    to and return a response that will result in traefik routing to the right place for subsequent
-    requests. Returns an error in the flask response if requirements are not met or if an error
-    occurs
-    """
-    request = flask.request
-    auth_status = valid_request(request)
-    if 'userid' in auth_status:
-        resp = get_container(auth_status['userid'], request, narrative)
-    else:
-        resp = error_response(auth_status, request)
-    return resp
 
 
 def verify_rancher_config():
@@ -477,6 +487,31 @@ def verify_docker_config():
     except Exception as ex:
         log.critical("Error trying to list containers using {} as docker socket path.".format(cfg['docker_url']))
         raise(ex)
+
+
+def log_handler(dest):
+    """
+    Takes as input a string that is either a filename, or else socket specification of of the form
+    "tcp:///host:port"
+    An additional log handler will be created that directs log output to this destination
+    """
+
+
+@app.route(cfg['base_url'] + '<path:narrative>')
+def hello(narrative):
+    """
+    Main handler for the auth service. Validate the request, get the container is should be routed
+    to and return a response that will result in traefik routing to the right place for subsequent
+    requests. Returns an error in the flask response if requirements are not met or if an error
+    occurs
+    """
+    request = flask.request
+    auth_status = valid_request(request)
+    if 'userid' in auth_status:
+        resp = get_container(auth_status['userid'], request, narrative)
+    else:
+        resp = error_response(auth_status, request)
+    return resp
 
 
 if __name__ == '__main__':
