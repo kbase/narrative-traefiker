@@ -7,12 +7,14 @@ import random
 import logging
 from pythonjsonlogger import jsonlogger
 import sys
+from datetime import datetime
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",
        "hostname": u"localhost",
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
        "image": u"kbase/narrative:latest",
+       "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
        "kbase_cookie": u"kbase_session",
        "base_url": u"/narrative/",
@@ -59,14 +61,30 @@ def setup_app(app):
             cfg[cfg_item] = os.environ[cfg_item]
 
     # Configure logging
-    logging.basicConfig(stream=sys.stdout, format="%(message)s", level=int(cfg['log_level']))
+    class CustomJsonFormatter(jsonlogger.JsonFormatter):
+        def add_fields(self, log_record, record, message_dict):
+            super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+            if not log_record.get('timestamp'):
+                # this doesn't use record.created, so it is slightly off
+                now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                log_record['timestamp'] = now
+            if log_record.get('level'):
+                log_record['level'] = log_record['level'].upper()
+            else:
+                log_record['level'] = record.levelname
+            log_record['container'] = os.environ['HOSTNAME']
+            log_record['type'] = cfg['es_type']
+
+    logging.basicConfig(stream=sys.stdout, level=int(cfg['log_level']))
     logHandler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter()
+    formatter = CustomJsonFormatter('(timestamp) (level) (name) (message) (container) (type)')
     logHandler.setFormatter(formatter)
     logger.addHandler(logHandler)
 
     # Remove the default flask logger in favor of the one we just configured
     logger.removeHandler(flask.logging.default_handler)
+
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
     # Verify that either docker or rancher configs are viable before continuing. It is a fatal error if the
     # configs aren't good, so bail out entirely and don't start the app
@@ -90,7 +108,7 @@ def reload_msg(narrative, wait=0):
 <META HTTP-EQUIV="refresh" CONTENT="{};URL='/narrative/{}'">
 </head>
 <body>
-Starting container - will reload shortly
+Starting narrative - will reload shortly
 </body>
 </html>
 """
