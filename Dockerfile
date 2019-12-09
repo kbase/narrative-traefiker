@@ -1,10 +1,17 @@
-FROM jazzdd/alpine-flask:python3
+FROM python:3.6-alpine
+
+# Build arguments passed into the docker command for image metadata
+ARG BUILD_DATE
+ARG COMMIT
+ARG BRANCH
+
+COPY requirements.txt /requirements.txt
+
+# RUN pip install requests docker python-json-logger structlog && \
+RUN pip3 install --upgrade pip && \
+    pip install -r /requirements.txt
 
 COPY app.py /app/app.py
-
-RUN pip install requests docker python-json-logger structlog && \
-    sed -i 's/nginx/root/' /app.ini && \
-    sed -i 's/user nginx/user root/' /etc/nginx/nginx.conf
 
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vcs-url="https://github.com/kbase/narrative-traefiker.git" \
@@ -13,5 +20,9 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       us.kbase.vcs-branch=$BRANCH  \
       maintainer="Steve Chan sychan@lbl.gov"
 
+COPY app.py /app/app.py
+WORKDIR /app
 
 USER root
+
+ENTRYPOINT ["gunicorn", "-b", "0.0.0.0:5000", "-w", "4", "app:app"]

@@ -1,0 +1,6 @@
+requests
+docker
+python-json-logger
+structlog
+flask
+gunicorn
