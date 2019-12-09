@@ -4,14 +4,9 @@ import docker
 import base64
 import os
 import random
-# import json
 import logging
-import structlog
-from structlog import wrap_logger
-from structlog.processors import JSONRenderer
-from structlog.stdlib import filter_by_level, add_logger_name, add_log_level
+from pythonjsonlogger import jsonlogger
 import sys
-
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",
@@ -35,47 +30,43 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "rancher_stack_id": None,
        "mode": "docker"}
 
-
-for cfg_item in cfg.keys():
-    if cfg_item in os.environ:
-        cfg[cfg_item] = os.environ[cfg_item]
-client = docker.DockerClient(base_url=cfg['docker_url'])
-
-app = flask.Flask(__name__)
-
-logging.basicConfig(stream=sys.stdout, format="%(message)s", level=int(cfg['log_level']))
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.stdlib.render_to_log_kwargs,
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
-logger = wrap_logger(logging.getLogger(cfg['log_name']),
-                     processors=[filter_by_level, add_logger_name, add_log_level, JSONRenderer(indent=1, sort_keys=True)])
-
+# Declare this for the global docker client
+client = None
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
-errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
-          'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
-          'request_error': "Error querying {}: ".format(cfg['auth2'])}
+errors = None
 
+# Set a global logger instance
+logger = logging.getLogger()
 
-# Seed the random number generator based on default (time)
-random.seed()
+app = flask.Flask(__name__)
 
 
 def setup_app(app):
+    global client
+    client = docker.DockerClient(base_url=cfg['docker_url'])
+    global errors
+    errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
+              'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
+              'request_error': "Error querying {}: ".format(cfg['auth2'])}
+
+    # Seed the random number generator based on default (time)
+    random.seed()
+
+    for cfg_item in cfg.keys():
+        if cfg_item in os.environ:
+            cfg[cfg_item] = os.environ[cfg_item]
+
+    # Configure logging
+    logging.basicConfig(stream=sys.stdout, format="%(message)s", level=int(cfg['log_level']))
+    logHandler = logging.StreamHandler()
+    formatter = jsonlogger.JsonFormatter()
+    logHandler.setFormatter(formatter)
+    logger.addHandler(logHandler)
+
+    # Remove the default flask logger in favor of the one we just configured
+    logger.removeHandler(flask.logging.default_handler)
 
     # Verify that either docker or rancher configs are viable before continuing. It is a fatal error if the
     # configs aren't good, so bail out entirely and don't start the app
@@ -89,7 +80,7 @@ def setup_app(app):
     except Exception as ex:
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
-    logger.info(message="container management mode set to: {}".format(cfg['mode']))
+    logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
 
 
 def reload_msg(narrative, wait=0):
@@ -157,7 +148,7 @@ def check_session_docker(userid):
         session_id = None
     except docker.errors.APIErrors as err:
         msg = "Docker APIError thrown while searching for container name {} : {}".format(name, str(err))
-        logger.error(message=msg, name=name, exception=str(err))
+        logger.error({"message": msg, "name": name, "exception": str(err)})
         session_id = None
     return(session_id)
 
@@ -173,22 +164,22 @@ def check_session_rancher(userid):
         r = requests.get(url, auth=(cfg["rancher_user"], cfg["rancher_password"]))
         if not r.ok:
             msg = "Error response code from rancher API while searching for container name {} : {}".format(name, r.status_code)
-            logger.error(message=msg, status_code=r.status_code, name=name, response_body=r.text)
+            logger.error({"message": msg, "status_code": r.status_code, "name": name, "response_body": r.text})
             raise(Exception(msg))
         res = r.json()
         svcs = res['data']
         if len(svcs) == 0:
-            logger.debug(message="No previous session found", name=name, userid=userid)
+            logger.debug({"message": "No previous session found", "name": name, "userid": userid})
             session_id = None
         else:
             session_id = svcs[0]['launchConfig']['labels']['session_id']
-            logger.debug(message="Found existing session", session_id=session_id, userid=userid)
+            logger.debug({"message": "Found existing session", "session_id": session_id, "userid": userid})
             if len(svcs) > 1:
                 uuids = [svc['uuid'] for svc in svcs]
-                logger.warning(message="Found multiple session matches against container name", userid=userid,
-                               name=name, rancher_uuids=uuids)
+                logger.warning({"message": "Found multiple session matches against container name", "userid": userid,
+                               "name": name, "rancher_uuids": uuids})
     except Exception as ex:
-        logger.debug(message="Error trying to find existing session", exception=format(str(ex)), userid=userid)
+        logger.debug({"message": "Error trying to find existing session", "exception": format(str(ex)), "userid": userid})
         raise(ex)
     return(session_id)
 
@@ -213,8 +204,8 @@ def start_docker(session, userid, request):
         name = cfg['container_name'].format(userid)
         container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
                                           auto_remove=True, name=name, network=cfg["dock_net"])
-        logger.info(message="new_container", image=cfg['image'], userid=userid, name=name,
-                    session_id=session, client_ip=request.remote_addr)
+        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name,
+                    "session_id": session, "client_ip": request.remote_addr})
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
         # Try to get the session for it, if that fails then bail with error message
@@ -222,7 +213,7 @@ def start_docker(session, userid, request):
         if session is None:
             raise(err)
         else:
-            logger.info(message="previous_session", userid=userid, name=name, session_id=session, client_ip=request.remote_addr)
+            logger.info({"message": "previous_session", "userid": userid, "name": name, "session_id": session, "client_ip": request.remote_addr})
             container = client.get_container(name)
     if container.status != u"created":
         raise(Exception("Error starting container: container status {}".format(container.status)))
@@ -361,7 +352,8 @@ def start_rancher(session, userid, request):
     # an error state, and overwrite the response with an error response
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
-        logger.info(message="new_container", image=cfg['image'], userid=userid, name=name, session_id=session, client_ip="127.0.0.1")  # request.remote_addr)
+        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name, "session_id": session,
+                    "client_ip": "127.0.0.1"})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
             logger.error(msg)
@@ -395,11 +387,11 @@ def find_stack():
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
     env_endpoint = x[0]
-    logger.info(message="Found environment endpoint: {}".format(env_endpoint))
+    logger.info("Found environment endpoint: {}".format(env_endpoint))
     r = requests.get(env_endpoint+"/stacks", auth=(cfg['rancher_user'], cfg['rancher_password']))
     resp = r.json()
     x = [stack['id'] for stack in resp['data'] if stack['name'].lower() == stack_name.lower()]
-    logger.info(message="Found stack id: {}".format(x[0]))
+    logger.info("Found stack id: {}".format(x[0]))
     return({"url": env_endpoint, "stack_id": x[0]})
 
 
@@ -414,15 +406,15 @@ def get_container(userid, request, narrative):
     session = check_session_rancher(userid)
     resp = flask.Response(status=200)
     if session is None:
-        logger.debug(message="new_session", userid=userid, client_ip=request.remote_addr)
+        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode()
         try:
             # Try to start the container, session may be updated due to circumstances
             session = start_rancher(session, userid, request)
         except Exception as err:
-            logger.critical(message="start_container_exception", userid=userid, client_ip=request.remote_addr,
-                            exception=repr(err))
+            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
+                            "exception": repr(err)})
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
             session = None
@@ -431,7 +423,7 @@ def get_container(userid, request, narrative):
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        logger.debug(message="session_cookie", userid=userid, client_ip=request.remote_addr, cookie=cookie)
+        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
@@ -450,8 +442,8 @@ def error_response(auth_status, request):
     if auth_status['error'] == 'request_error':
         resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
-    logger.info(message="auth_error", client_ip=request.remote_addr, error=auth_status['error'],
-                detail=auth_status.get('message', ""))
+    logger.info({"message": "auth_error", "client_ip": request.remote_addr, "error": auth_status['error'],
+                "detail": auth_status.get('message', "")})
     return(resp)
 
 
