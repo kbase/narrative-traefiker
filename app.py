@@ -1,7 +1,6 @@
 import flask
 import requests
 import docker
-import base64
 import os
 import random
 import logging
@@ -30,7 +29,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "rancher_meta": "http://rancher-metadata/",
        "rancher_env_url": None,
        "rancher_stack_id": None,
-       "mode": "docker"}
+       "mode": None}
 
 # Declare this for the global docker client
 client = None
@@ -93,7 +92,7 @@ def setup_app(app):
             cfg['mode'] = "rancher"
             verify_rancher_config()
         else:
-            cfg['mode'] = "docker"  # That is the defaault, but somewhat safer to set it explicitly
+            cfg['mode'] = "docker"
             verify_docker_config()
     except Exception as ex:
         logger.critical("Failed validation of docker or rancher configuration")
@@ -420,16 +419,24 @@ def get_container(userid, request, narrative):
     object that contains the necessary cookie for traefik to use for routing, as well as a brief
     message that reloads the page so that traefik reroutes to the right place
     """
+    # Set the check_session() and start() methods to point to the versions appropriate for
+    # the mode we're in
+    if cfg['mode'] == "rancher":
+        check_session = check_session_rancher
+        start = start_rancher
+    else:
+        check_session = check_session_docker
+        start = start_docker
+
     # See if there is an existing session for this user, if so, reuse it
-    session = check_session_rancher(userid)
+    session = check_session(userid)
     resp = flask.Response(status=200)
     if session is None:
         logger.debug({"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
-        session = base64.b64encode(random.getrandbits(128).to_bytes(16, "big")).decode()
+        session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
-            # Try to start the container, session may be updated due to circumstances
-            session = start_rancher(session, userid, request)
+            session = start(session, userid, request)
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
                             "exception": repr(err)})
@@ -546,4 +553,8 @@ setup_app(app)
 
 if __name__ == '__main__':
 
-    app.run()
+    if cfg['mode'] is not None:
+        app.run()
+    else:
+        logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
+        raise RuntimeError("Cannot start/check containers.")
