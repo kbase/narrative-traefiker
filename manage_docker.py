@@ -1,11 +1,6 @@
-# import requests
 import docker
 import os
-# import random
 import logging
-# from pythonjsonlogger import jsonlogger
-# import sys
-# from datetime import datetime
 
 
 # Module wide docker client
