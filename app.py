@@ -1,6 +1,5 @@
 import flask
 import requests
-import docker
 import os
 import random
 import logging
@@ -20,7 +19,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
        "kbase_cookie": u"kbase_session",
-       "base_url": u"/narrative/",
        "container_name": u"narrative-{}",
        "dock_net": u"narrative-traefiker_default",
        "reload_secs": 5,
@@ -46,8 +44,6 @@ app = flask.Flask(__name__)
 
 
 def setup_app(app):
-    global client
-    client = docker.DockerClient(base_url=cfg['docker_url'])
     global errors
     errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
               'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
@@ -106,18 +102,18 @@ def setup_app(app):
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
 
 
-def reload_msg(base_url, narrative, wait=0):
+def reload_msg(narrative, wait=0):
     msg = """
 <html>
 <head>
-<META HTTP-EQUIV="refresh" CONTENT="{};URL='{}/{}'">
+<META HTTP-EQUIV="refresh" CONTENT="{};URL='/narrative/{}'">
 </head>
 <body>
 Starting narrative - will reload shortly
 </body>
 </html>
 """
-    return msg.format(wait, base_url, narrative)
+    return msg.format(wait, narrative)
 
 
 def container_err_msg(message):
@@ -311,7 +307,7 @@ def start_rancher(session, userid, request):
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
     rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",\"{}\")"
-    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], cfg["base_url"], cookie)
+    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], "/narrative", cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
@@ -385,7 +381,7 @@ def get_container(userid, request, narrative):
     resp = flask.Response(status=200)
     if session is None:
         logger.debug({"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
-        resp.set_data(reload_msg(cfg['base_url'], narrative, cfg['reload_secs']))
+        resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
             session = start(session, userid, request)
@@ -397,7 +393,7 @@ def get_container(userid, request, narrative):
             session = None
     else:
         # Session already exists, don't pause before reloading
-        resp.set_data(reload_msg(cfg['base_url'], narrative, 0))
+        resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
         logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
@@ -470,7 +466,7 @@ def verify_rancher_config():
 setup_app(app)
 
 
-@app.route(cfg['base_url'] + '<path:narrative>')
+@app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
     """
     Main handler for the auth service. Validate the request, get the container is should be routed

@@ -11,7 +11,7 @@ COPY requirements.txt /requirements.txt
 RUN pip3 install --upgrade pip && \
     pip install -r /requirements.txt
 
-COPY app.py /app/app.py
+COPY *.py logging.conf *.conf /app/
 
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.vcs-url="https://github.com/kbase/narrative-traefiker.git" \
@@ -25,4 +25,4 @@ WORKDIR /app
 
 USER root
 
-ENTRYPOINT ["gunicorn", "-b", "0.0.0.0:5000", "-w", "4", "app:app"]
+ENTRYPOINT [ "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--log-config", "logging.conf", "app:app" ]

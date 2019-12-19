@@ -21,7 +21,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
        "kbase_cookie": u"kbase_session",
-       "base_url": u"/narrative/",
        "container_name": u"narrative-{}",
        "dock_net": u"narrative-traefiker_default",
        "reload_secs": 5,
@@ -97,7 +96,7 @@ def start(session, userid, request):
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
     cookie = u"{}={}".format(cfg['session_cookie'], session)
-    labels["traefik.http.routers." + userid + ".rule"] = u"Host(\"" + cfg['hostname'] + u"\") && PathPrefix(\""+cfg["base_url"]+u"\")"
+    labels["traefik.http.routers." + userid + ".rule"] = u"Host(\"" + cfg['hostname'] + u"\") && PathPrefix(\"/narrative\")"
     labels["traefik.http.routers." + userid + ".rule"] += u" && HeadersRegexp(\"Cookie\",\"" + cookie + u"\")"
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
