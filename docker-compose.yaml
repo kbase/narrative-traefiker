@@ -6,7 +6,7 @@ networks:
 
 services:
   traefik:
-    image: "traefik:v2.0.1"
+    image: "traefik:v2.1.1"
     container_name: "traefik"
     command:
       - "--log.level=INFO"
@@ -25,13 +25,13 @@ services:
       - narrative
 
   authsvc:
-    image: "kbase/traefik_authsvc:latest"
+    image: "kbase/narrative-traefiker:latest"
     hostname: "authsvc"
     volumes:
       - "./app.py:/app/app.py"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     ports:
-      - "8000:80"
+      - "5000:5000"
     environment:
        - hostname=localhost
        - dock_net=traefik_narrative
