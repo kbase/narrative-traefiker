@@ -40,7 +40,7 @@ def setup(main_cfg, main_logger):
         logger = main_logger
 
 
-def check_session_rancher(userid):
+def check_session(userid):
     """
     Check to see if we already have a container for this user by trying to pull the container object
     for the userid
