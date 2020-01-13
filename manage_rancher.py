@@ -71,7 +71,7 @@ def check_session(userid):
     return(session_id)
 
 
-def start_rancher(session, userid, request):
+def start(session, userid, request):
     """
     Attempts to start a new container using the rancher API. Signature is identical to the start_docker
     method, with the equivalent rancher exceptions.
