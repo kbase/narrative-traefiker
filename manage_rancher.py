@@ -249,7 +249,7 @@ def find_stack():
 def find_service(name):
     """
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
-    if one isn't found
+    if (exactly) one isn't found.
     """
     url = "{}/service?name={}".format(cfg['rancher_env_url'], name)
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
@@ -261,6 +261,22 @@ def find_service(name):
             raise(Exception("Error querying for {}: expected exactly 1 result, got {}".format(name, len(results['data']))))
     else:
         raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
+
+
+def find_image(name):
+    """
+    Given a service name, return the docker image that the service is running. If the service doesn't exist
+    then return None, as this may mean that service has been reaped already
+    """
+    try:
+        container = find_service(name)
+        if container is not None:
+            src, image = container["launchConfig"]["imageUuid"].split(":", 1)
+        else:
+            image = None
+        return(image)
+    except Exception as ex:  # Just reraise any other exception
+        raise(ex)
 
 
 def reap_narrative(name):

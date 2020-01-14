@@ -4,6 +4,10 @@ import time
 import re
 import os
 import signal
+import manage_rancher
+import manage_docker
+import logging
+
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": "unix://var/run/docker.sock",
@@ -12,7 +16,8 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "traefik_metrics": "http://localhost:8080/metrics",
        "timeout_secs": 600,
        "sleep": 30,
-       "debug": 0}
+       "debug": 0,
+       "mode": "docker"}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
@@ -21,18 +26,13 @@ for cfg_item in cfg.keys():
 client = docker.DockerClient(base_url=cfg['docker_url'])
 
 
-def reap_narrative(container_name):
-    try:
-        killit = client.containers.get(container_name)
-        killit.stop()
-    except docker.errors.NotFound:
-        print("Container not found - may have been reaped already")
-    except Exception as e:
-        raise(e)  # Unhandled exception, rethrow
-    return
-
-
 def get_active_traefik_svcs():
+    if cfg['mode'] == 'docker':
+        find_image = manage_docker.find_image
+    elif cfg['mode'] == 'rancher':
+        find_image = manage_rancher.find_image
+    else:
+        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
     try:
         r = requests.get(cfg['traefik_metrics'])
         if r.status_code == 200:
@@ -50,14 +50,9 @@ def get_active_traefik_svcs():
             for name in containers.keys():
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(cfg['container_prefix']):
-                    try:
-                        svc_container = client.containers.get(name)
-                    except docker.errors.NotFound:
-                        if cfg['debug']:
-                            print("Service {} not found (might be part of core stack or reaped already)".format(name))
-                        continue
+                    image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
-                    if (cfg['narr_img'] in svc_container.image.attrs["RepoTags"]):
+                    if (cfg['narr_img'] in image_name):
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it
                         if (containers[name] > 0) or (name not in containers):
@@ -66,7 +61,7 @@ def get_active_traefik_svcs():
                                 print("Updated timestamp for "+name)
                     else:
                         if cfg['debug']:
-                            print("Skipping because {} not in {}".format(cfg['narr_img'], svc_container.image.attrs['RepoTags']))
+                            print("Skipping because {} not in {}".format(cfg['narr_img'], image_name))
                 else:
                     if cfg['debug']:
                         print("Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix']))
@@ -79,6 +74,13 @@ def get_active_traefik_svcs():
 
 def reaper_loop(narr_activity):
     """ Main loop that checks the narrative state and reaps containers that have been abandoned for too long """
+    if cfg['mode'] == 'docker':
+        reap_narrative = manage_docker.reap_narrative
+    elif cfg['mode'] == 'rancher':
+        reap_narrative = manage_rancher.reap_narrative
+    else:
+        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
+
     while True:
         try:
             narr_activity.update(get_active_traefik_svcs())
@@ -99,6 +101,10 @@ def reaper_loop(narr_activity):
 
 
 if __name__ == '__main__':
+    if (cfg["rancher_url"] is not None):
+        cfg['mode'] = "rancher"
+        manage_rancher.setup(cfg, logging.getLogger())
+        manage_rancher.verify_config(cfg)
     print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval".format(cfg["timeout_secs"], cfg["sleep"]))
     print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
     narr_activity = dict()

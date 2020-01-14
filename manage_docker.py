@@ -50,6 +50,20 @@ def verify_config(cfg):
         raise(ex)
 
 
+def find_image(name):
+    """
+    Given a service name, return the docker image that the service is running. If the service doesn't exist
+    then raise and exception
+    """
+    try:
+        container = client.containers.get(name)
+    except docker.errors.NotFound:
+        if cfg['debug']:
+            print("Service {} not found (might be part of core stack or reaped already)".format(name))
+        return(None)
+    return(container.image.attrs["RepoTags"])
+
+
 def reap_narrative(container_name):
     try:
         killit = client.containers.get(container_name)
