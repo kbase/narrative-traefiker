@@ -1,5 +1,4 @@
 import requests
-import docker
 import time
 import re
 import os
@@ -22,8 +21,6 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
         cfg[cfg_item] = os.environ[cfg_item]
-
-client = docker.DockerClient(base_url=cfg['docker_url'])
 
 
 def get_active_traefik_svcs():
