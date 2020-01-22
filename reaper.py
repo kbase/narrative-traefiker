@@ -16,7 +16,10 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "timeout_secs": 600,
        "sleep": 30,
        "debug": 0,
-       "mode": "docker"}
+       "mode": None,
+       "rancher_user": None,
+       "rancher_url": None,
+       "rancher_password": None}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
