@@ -105,6 +105,10 @@ if __name__ == '__main__':
         cfg['mode'] = "rancher"
         manage_rancher.setup(cfg, logging.getLogger())
         manage_rancher.verify_config(cfg)
+    else:
+        cfg['mode'] = "docker"
+        manage_docker.setup(cfg, logging.getLogger())
+        manage_docker.verify_config(cfg)
     print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval".format(cfg["timeout_secs"], cfg["sleep"]))
     print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
     narr_activity = dict()
