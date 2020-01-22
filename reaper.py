@@ -18,8 +18,11 @@ cfg = {"docker_url": "unix://var/run/docker.sock",
        "debug": 0,
        "mode": None,
        "rancher_user": None,
+       "rancher_password": None,
        "rancher_url": None,
-       "rancher_password": None}
+       "rancher_meta": "http://rancher-metadata/",
+       "rancher_env_url": None,
+       "rancher_stack_id": None}
 
 for cfg_item in cfg.keys():
     if cfg_item in os.environ:
