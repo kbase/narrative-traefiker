@@ -12,7 +12,7 @@ import logging
 cfg = {"docker_url": "unix://var/run/docker.sock",
        "narr_img": "kbase/narrative:latest",
        "container_prefix": "narrative",
-       "traefik_metrics": "http://localhost:8080/metrics",
+       "traefik_metrics": "http://traefik:8080/metrics",
        "timeout_secs": 600,
        "sleep": 30,
        "debug": 0,

@@ -246,11 +246,12 @@ def find_stack():
     return({"url": env_endpoint, "stack_id": x[0]})
 
 
-def find_service(name):
+def find_service(traefikname):
     """
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
     if (exactly) one isn't found.
     """
+    name = traefikname.replace("_traefik", "")  # Remove trailing _traefik suffix that traefik adds
     url = "{}/service?name={}".format(cfg['rancher_env_url'], name)
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
