@@ -84,6 +84,13 @@ def reaper_loop(narr_activity):
     else:
         raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
 
+    def narr_status(signalNumber, frame):
+        print("Current time: {}".format(time.asctime()))
+        for container in narr_activity.keys():
+            print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
+
+    signal.signal(signal.SIGUSR1, narr_status)
+
     while True:
         try:
             narr_activity.update(get_active_traefik_svcs())
@@ -116,12 +123,5 @@ if __name__ == '__main__':
     print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
     narr_activity = dict()
     # Allow the USR1 signal to be used to dump the narrative status dictionary
-
-    def narr_status(signalNumber, frame):
-        print("Current time: {}".format(time.asctime()))
-        for container in narr_activity.keys():
-            print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
-
-    signal.signal(signal.SIGUSR1, narr_status)
 
     reaper_loop(narr_activity)
