@@ -187,7 +187,7 @@ def start(session, userid, request):
                         u'uuid': None,
                         u'vip': None}
     name = cfg['container_name'].format(userid)
-    cookie = u"{}={}".format(cfg['session_cookie'], session)
+    cookie = u'{}\\={}'.format(cfg['session_cookie'], session)
     labels = dict()
     labels["io.rancher.container.pull_image"] = u"always"
     labels["traefik.enable"] = u"True"
