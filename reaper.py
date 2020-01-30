@@ -50,12 +50,20 @@ def get_active_traefik_svcs():
                     print("websocket line:", line)
                 matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
                 containers[matches.group(1)] = int(matches.group(2))
+            if cfg['debug']:
+                print("Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img']))
             for name in containers.keys():
+                if cfg['debug']:
+                    print("Examing container: {}".format(name))
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(cfg['container_prefix']):
+                    if cfg['debug']:
+                        print("Matches prefix")
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
                     if (cfg['narr_img'] in image_name):
+                        if cfg['debug']:
+                            print("Matches image name")
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it
                         if (containers[name] > 0) or (name not in containers):
@@ -98,15 +106,15 @@ def reaper_loop(narr_activity):
             print("ERROR: {}".format(repr(e)))
             continue
         now = time.time()
-        for name, timestamp in narr_activity.items():
-            if (now - timestamp) > cfg['timeout_secs']:
-                msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['timeout_secs'])
-                print(msg)
-                try:
-                    reap_narrative(name)
-                    del narr_activity[name]
-                except Exception as e:
-                    print("Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e)))
+        reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['timeout_secs']]
+
+        for name in reap_list:
+            msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['timeout_secs'])
+            print(msg)
+            try:
+                reap_narrative(name)
+            except Exception as e:
+                print("Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e)))
         time.sleep(cfg['sleep'])
 
 
