@@ -258,6 +258,9 @@ def find_service(traefikname):
         results = r.json()
         if len(results['data']) == 1:
             return(results['data'][0])
+        elif len(results['data']) == 0:
+            # Assume that the container has already been reaped and ignore
+            return(None)
         else:
             raise(Exception("Error querying for {}: expected exactly 1 result, got {}".format(name, len(results['data']))))
     else:
