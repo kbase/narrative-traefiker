@@ -285,6 +285,9 @@ def find_image(name):
 
 def reap_narrative(name):
     res = find_service(name)
+    # if there is a None return, the image may have been reaped already just return
+    if res is None:
+        return
     remove_url = res['actions']['remove']
     r = requests.delete(remove_url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
