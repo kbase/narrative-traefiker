@@ -21,7 +21,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "kbase_cookie": u"kbase_session",
        "container_name": u"narrative-{}",
        "dock_net": u"narrative-traefiker_default",
-       "reload_secs": 5,
+       "reload_secs": 10,
        "log_level": logging.DEBUG,
        "log_dest": None,
        "log_name": u"traefiker",
@@ -103,7 +103,7 @@ def setup_app(app):
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
 
 
-def reload_msg(narrative, wait=0):
+def reload_msg(narrative, wait=5):
     msg = """
 <html>
 <head>
