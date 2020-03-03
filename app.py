@@ -103,7 +103,7 @@ def setup_app(app):
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
 
 
-def reload_msg(narrative, wait=5):
+def reload_msg(narrative, wait=0):
     msg = """
 <html>
 <head>
