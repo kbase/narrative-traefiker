@@ -29,7 +29,7 @@ for cfg_item in cfg.keys():
         cfg[cfg_item] = os.environ[cfg_item]
 
 
-def get_active_traefik_svcs():
+def get_active_traefik_svcs(narr_activity):
     if cfg['mode'] == 'docker':
         find_image = manage_docker.find_image
     elif cfg['mode'] == 'rancher':
@@ -39,7 +39,6 @@ def get_active_traefik_svcs():
     try:
         r = requests.get(cfg['traefik_metrics'])
         if r.status_code == 200:
-            narr_activity = dict()
             body = r.text.split("\n")
             # Find all counters related to websockets - jupyter notebooks rely on websockets for communications
             service_conn = [line for line in body if "traefik_service_open_connections{" in line]
@@ -102,7 +101,8 @@ def reaper_loop(narr_activity):
 
     while True:
         try:
-            narr_activity.update(get_active_traefik_svcs())
+            newtimestamps = get_active_traefik_svcs(narr_activity)
+            narr_activity.update(newtimestamps)
         except Exception as e:
             print("ERROR: {}".format(repr(e)))
             continue
