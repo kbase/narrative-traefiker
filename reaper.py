@@ -41,6 +41,7 @@ def get_active_traefik_svcs():
         if r.status_code == 200:
             narr_activity = dict()
             body = r.text.split("\n")
+            # Find all counters related to websockets - jupyter notebooks rely on websockets for communications
             service_conn = [line for line in body if "traefik_service_open_connections{" in line]
             service_websocket_open = [line for line in service_conn if "protocol=\"websocket\"" in line]
             # Containers is a dictionary keyed on container name with the value as the # of active web sockets
@@ -66,7 +67,7 @@ def get_active_traefik_svcs():
                             print("Matches image name")
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it
-                        if (containers[name] > 0) or (name not in containers):
+                        if (containers[name] > 0) or (name not in narr_activity):
                             narr_activity[name] = time.time()
                             if cfg['debug']:
                                 print("Updated timestamp for "+name)
