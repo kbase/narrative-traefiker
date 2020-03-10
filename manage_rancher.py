@@ -195,7 +195,7 @@ def start(session, userid, request):
     rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
     labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], "/narrative", cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
-    labels["traefik.http.routers." + userid + ".priority"] = 10
+#    labels["traefik.http.routers." + userid + ".priority"] = 10
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
     container_config['name'] = name
