@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 import manage_docker
 import manage_rancher
+from apscheduler.schedulers.background import BackgroundScheduler
 from werkzeug.debug import DebuggedApplication
 
 
@@ -41,6 +42,8 @@ errors = None
 logger = logging.getLogger()
 
 app = flask.Flask(__name__)
+
+scheduler = BackgroundScheduler()
 
 
 def setup_app(app):
@@ -215,6 +218,13 @@ def error_response(auth_status, request):
     return(resp)
 
 
+def reaper(narr_activity):
+    """
+    Reaper function, intended to be called at regular intervals
+    """
+    logger.info({"message": "Reaper process running"})
+
+
 @app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
     """
@@ -238,6 +248,7 @@ setup_app(app)
 if __name__ == '__main__':
 
     if cfg['mode'] is not None:
+        scheduler.add_job(reaper, 'interval', minutes=2, id='reaper')
         app.run()
     else:
         logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
