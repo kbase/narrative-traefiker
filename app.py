@@ -32,7 +32,9 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "rancher_meta": "http://rancher-metadata/",
        "rancher_env_url": None,
        "rancher_stack_id": None,
-       "mode": None}
+       "mode": None,
+       "reaper_timeout_secs": 600,
+       "reaper_sleep_secs": 30}
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -248,8 +250,10 @@ setup_app(app)
 if __name__ == '__main__':
 
     if cfg['mode'] is not None:
+        logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
+                     "reaper_sleep_secs": cfg['reaper_sleep_secs']})
         scheduler.start()
-        scheduler.add_job(reaper, 'interval', minutes=2, id='reaper')
+        scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
         app.run()
     else:
         logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
