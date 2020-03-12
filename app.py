@@ -5,6 +5,9 @@ import random
 import logging
 from pythonjsonlogger import jsonlogger
 import sys
+import time
+import signal
+import re
 from datetime import datetime
 import manage_docker
 import manage_rancher
@@ -48,6 +51,12 @@ app = flask.Flask(__name__)
 scheduler = BackgroundScheduler()
 
 narr_activity = dict()
+
+
+def narr_status(signalNumber, frame):
+    print("Current time: {}".format(time.asctime()))
+    for container in narr_activity.keys():
+        print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
 
 
 def setup_app(app):
@@ -112,6 +121,7 @@ def setup_app(app):
                  "reaper_sleep_secs": cfg['reaper_sleep_secs']})
     scheduler.start()
     scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
+    signal.signal(signal.SIGUSR1, narr_status)
 
 
 def reload_msg(narrative, wait=0):
@@ -226,11 +236,87 @@ def error_response(auth_status, request):
     return(resp)
 
 
+def get_active_traefik_svcs():
+    if cfg['mode'] == 'docker':
+        find_image = manage_docker.find_image
+    elif cfg['mode'] == 'rancher':
+        find_image = manage_rancher.find_image
+    else:
+        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
+    try:
+        r = requests.get(cfg['traefik_metrics'])
+        if r.status_code == 200:
+            body = r.text.split("\n")
+            # Find all counters related to websockets - jupyter notebooks rely on websockets for communications
+            service_conn = [line for line in body if "traefik_service_open_connections{" in line]
+            service_websocket_open = [line for line in service_conn if "protocol=\"websocket\"" in line]
+            # Containers is a dictionary keyed on container name with the value as the # of active web sockets
+            containers = dict()
+            for line in service_websocket_open:
+                if cfg['debug']:
+                    print("websocket line:", line)
+                matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
+                containers[matches.group(1)] = int(matches.group(2))
+            if cfg['debug']:
+                print("Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img']))
+            for name in containers.keys():
+                if cfg['debug']:
+                    print("Examing container: {}".format(name))
+                # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
+                if name.startswith(cfg['container_prefix']):
+                    if cfg['debug']:
+                        print("Matches prefix")
+                    image_name = find_image(name)
+                    # Filter out any container that isn't the image type we are reaping
+                    if (cfg['narr_img'] in image_name):
+                        if cfg['debug']:
+                            print("Matches image name")
+                        # only update timestamp if the container has active websockets or this is the first
+                        # time we've seen it
+                        if (containers[name] > 0) or (name not in narr_activity):
+                            narr_activity[name] = time.time()
+                            if cfg['debug']:
+                                print("Updated timestamp for "+name)
+                    else:
+                        if cfg['debug']:
+                            print("Skipping because {} not in {}".format(cfg['narr_img'], image_name))
+                else:
+                    if cfg['debug']:
+                        print("Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix']))
+            return(narr_activity)
+        else:
+            raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
+    except Exception as e:
+        raise(e)
+
+
 def reaper():
     """
     Reaper function, intended to be called at regular intervals
     """
     logger.info({"message": "Reaper process running"})
+    if cfg['mode'] == 'docker':
+        reap_narrative = manage_docker.reap_narrative
+    elif cfg['mode'] == 'rancher':
+        reap_narrative = manage_rancher.reap_narrative
+    else:
+        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
+    try:
+        newtimestamps = get_active_traefik_svcs()
+        narr_activity.update(newtimestamps)
+    except Exception as e:
+        print("ERROR: {}".format(repr(e)))
+        return
+    now = time.time()
+    reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['timeout_secs']]
+
+    for name in reap_list:
+        msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['timeout_secs'])
+        print(msg)
+        try:
+            reap_narrative(name)
+        except Exception as e:
+            print("Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e)))
 
 
 @app.route("/narrative/" + '<path:narrative>')
