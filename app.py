@@ -24,6 +24,9 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "session_cookie": u"narrative_session",
        "kbase_cookie": u"kbase_session",
        "container_name": u"narrative-{}",
+       "narr_img": "kbase/narrative:latest",
+       "container_prefix": "narrative",
+       "traefik_metrics": "http://traefik:8080/metrics",
        "dock_net": u"narrative-traefiker_default",
        "reload_secs": 10,
        "log_level": logging.DEBUG,
@@ -37,7 +40,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "rancher_stack_id": None,
        "mode": None,
        "reaper_timeout_secs": 600,
-       "reaper_sleep_secs": 30}
+       "reaper_sleep_secs": 30,
+       "debug": 0}
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
