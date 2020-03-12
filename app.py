@@ -106,10 +106,10 @@ def setup_app(app):
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
-    logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
-                    "reaper_sleep_secs": cfg['reaper_sleep_secs']})
-    scheduler.start()
-    scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
+    # logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
+    #            "reaper_sleep_secs": cfg['reaper_sleep_secs']})
+    # scheduler.start()
+    # scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
 
 
 def reload_msg(narrative, wait=0):
@@ -249,10 +249,9 @@ def hello(narrative):
     return resp
 
 
-setup_app(app)
-
 if __name__ == '__main__':
 
+    setup_app(app)
     if cfg['mode'] is not None:
         app.run()
     else:

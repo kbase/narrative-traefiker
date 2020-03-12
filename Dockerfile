@@ -25,4 +25,4 @@ WORKDIR /app
 
 USER root
 
-ENTRYPOINT [ "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--log-config", "logging.conf", "app:app" ]
+ENTRYPOINT [ "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--log-config", "logging.conf", "-c", "config.py", "app:app" ]
