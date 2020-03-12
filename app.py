@@ -305,18 +305,18 @@ def reaper():
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
     except Exception as e:
-        print("ERROR: {}".format(repr(e)))
+        logger.critical({"message": "ERROR: {}".format(repr(e))})
         return
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['timeout_secs']]
 
     for name in reap_list:
         msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['timeout_secs'])
-        print(msg)
+        logger.info({"message": msg})
         try:
             reap_narrative(name)
         except Exception as e:
-            print("Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e)))
+            logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
 
 
 @app.route("/narrative/" + '<path:narrative>')
