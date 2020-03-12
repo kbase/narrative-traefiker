@@ -257,36 +257,28 @@ def get_active_traefik_svcs():
             # Containers is a dictionary keyed on container name with the value as the # of active web sockets
             containers = dict()
             for line in service_websocket_open:
-                if cfg['debug']:
-                    print("websocket line:", line)
+                logger.debug({"message": "websocket line: {}".format(line)})
                 matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
                 containers[matches.group(1)] = int(matches.group(2))
-            if cfg['debug']:
-                print("Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img']))
+            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img'])})
             for name in containers.keys():
-                if cfg['debug']:
-                    print("Examing container: {}".format(name))
+                logger.debug({"message": "Examing container: {}".format(name)})
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(cfg['container_prefix']):
-                    if cfg['debug']:
-                        print("Matches prefix")
+                    logger.debug({"message": "Matches prefix"})
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
                     if (cfg['narr_img'] in image_name):
-                        if cfg['debug']:
-                            print("Matches image name")
+                        logger.debug({"message": "Matches image name"})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it
                         if (containers[name] > 0) or (name not in narr_activity):
                             narr_activity[name] = time.time()
-                            if cfg['debug']:
-                                print("Updated timestamp for "+name)
+                            logger.debug({"message": "Updated timestamp for "+name})
                     else:
-                        if cfg['debug']:
-                            print("Skipping because {} not in {}".format(cfg['narr_img'], image_name))
+                        logger.debug({"message": "Skipping because {} not in {}".format(cfg['narr_img'], image_name)})
                 else:
-                    if cfg['debug']:
-                        print("Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix']))
+                    logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix'])})
             return(narr_activity)
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
@@ -312,10 +304,10 @@ def reaper():
         logger.critical({"message": "ERROR: {}".format(repr(e))})
         return
     now = time.time()
-    reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['timeout_secs']]
+    reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
 
     for name in reap_list:
-        msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['timeout_secs'])
+        msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['reaper_timeout_secs'])
         logger.info({"message": msg})
         try:
             reap_narrative(name)
