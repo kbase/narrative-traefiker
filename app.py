@@ -248,6 +248,7 @@ setup_app(app)
 if __name__ == '__main__':
 
     if cfg['mode'] is not None:
+        scheduler.start()
         scheduler.add_job(reaper, 'interval', minutes=2, id='reaper')
         app.run()
     else:
