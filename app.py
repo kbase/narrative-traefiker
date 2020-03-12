@@ -47,6 +47,8 @@ app = flask.Flask(__name__)
 
 scheduler = BackgroundScheduler()
 
+narr_activity = dict()
+
 
 def setup_app(app):
     global errors
@@ -106,10 +108,10 @@ def setup_app(app):
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
-    # logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
-    #            "reaper_sleep_secs": cfg['reaper_sleep_secs']})
-    # scheduler.start()
-    # scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
+    logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
+                 "reaper_sleep_secs": cfg['reaper_sleep_secs']})
+    scheduler.start()
+    scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
 
 
 def reload_msg(narrative, wait=0):
@@ -224,7 +226,7 @@ def error_response(auth_status, request):
     return(resp)
 
 
-def reaper(narr_activity):
+def reaper():
     """
     Reaper function, intended to be called at regular intervals
     """
