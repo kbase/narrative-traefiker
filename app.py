@@ -12,7 +12,6 @@ from datetime import datetime
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
-from werkzeug.debug import DebuggedApplication
 
 
 # Setup default configuration values, overriden by values from os.environ later
@@ -68,10 +67,6 @@ def setup_app(app):
     errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
               'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
               'request_error': "Error querying {}: ".format(cfg['auth2'])}
-
-    #  ToDo: Comment this out before going to prod
-    if app.debug:
-        app.wsgi_app = DebuggedApplication(app.wsgi_app, evalex=True)
 
     # Seed the random number generator based on default (time)
     random.seed()
