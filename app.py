@@ -266,18 +266,6 @@ def get_active_traefik_svcs():
                 logger.debug({"message": "websocket line: {}".format(line)})
                 matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
                 containers[matches.group(1)] = int(matches.group(2))
-            # Find containers that have a 'traefik_service_requests_total' value that is greater than 0, this means the container has been
-            # used by a client. Sum up all of the connections to get total activity. Containers that haven't had any traffic routed to them
-            # won't have any requests, or else will not have an entry at all
-            match_string = '^traefik_service_requests_total{{.+service="({}.+@rancher.+ (\\d+)'.format(cfg.get('container_prefix', '\\w'))
-            requests_total = dict()
-            for line in body:
-                m = re.match(match_string, line)
-                if m:
-                    if m.group(1) in requests_total:
-                        requests_total[m.group(1)] += int(m.group(2))
-                    else:
-                        requests_total[m.group(1)] = int(m.group(2))
             logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img'])})
             for name in containers.keys():
                 logger.debug({"message": "Examing container: {}".format(name)})
@@ -289,14 +277,10 @@ def get_active_traefik_svcs():
                     if (cfg['narr_img'] in image_name):
                         logger.debug({"message": "Matches image name"})
                         # only update timestamp if the container has active websockets or this is the first
-                        # time we've seen it. If traefik reports this container has had no traffic going to it
-                        # then skip it - its in the unused worker pool
+                        # time we've seen it.
                         if (containers[name] > 0) or (name not in narr_activity):
-                            if requests_total.get(name, 0) >= 1:
-                                narr_activity[name] = time.time()
-                                logger.debug({"message": "Updated timestamp for "+name})
-                            else:
-                                logger.debug({"message": "Skipping container because it is unused so far: "+name})
+                            narr_activity[name] = time.time()
+                            logger.debug({"message": "Updated timestamp for "+name})
                     else:
                         logger.debug({"message": "Skipping because {} not in {}".format(cfg['narr_img'], image_name)})
                 else:
