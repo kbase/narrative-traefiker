@@ -40,7 +40,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "mode": None,
        "reaper_timeout_secs": 600,
        "reaper_sleep_secs": 30,
-       "debug": 0}
+       "debug": 0,
+       "narrenv": dict()}
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -74,6 +75,16 @@ def setup_app(app):
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
             cfg[cfg_item] = os.environ[cfg_item]
+    # To support injecting arbitrary environment variables into the narrative container, we
+    # look for any environment variable with the prefix "NARRENV_" and add it into a narrenv
+    # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
+    # prefix as the key
+    for k in os.environ.keys():
+        match = re.match(r"^NARRENV_(\w+)", k)
+        if match:
+            cfg['narrenv'][match.group(1)] = os.environ[k]
+            logger.debug({"message": "Setting narrenv from environment",
+                          "key": match.group(1), "value": os.environ[k]})
 
     # Configure logging
     class CustomJsonFormatter(jsonlogger.JsonFormatter):
