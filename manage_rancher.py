@@ -1,6 +1,7 @@
 import requests
 import os
 import logging
+import re
 
 # Module wide logger
 logger = None
@@ -22,22 +23,36 @@ cfg = {"hostname": u"localhost",
        "rancher_meta": "http://rancher-metadata/",
        "rancher_env_url": None,
        "rancher_stack_id": None,
-       "mode": None}
+       "mode": None,
+       "narrenv": dict()}
 
 
 def setup(main_cfg, main_logger):
     global cfg
-    if main_cfg is not None:
-        cfg = main_cfg
-    else:
-        for cfg_item in cfg.keys():
-            if cfg_item in os.environ:
-                cfg[cfg_item] = os.environ[cfg_item]
     global logger
+
     if main_logger is None:
         logger = logging.getLogger()
     else:
         logger = main_logger
+
+    if main_cfg is not None:
+        cfg = main_cfg
+    else:
+        # We pull any environment variable that matches a config key into the config dictionary
+        for cfg_item in cfg.keys():
+            if cfg_item in os.environ:
+                cfg[cfg_item] = os.environ[cfg_item]
+        # To support injecting arbitrary environment variables into the narrative container, we
+        # look for any environment variable with the prefix "NARRENV_" and add it into a narrenv
+        # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
+        # prefix as the key
+        for k in os.environ.keys():
+            match = re.match(r"^NARRENV_(\w+)")
+            if match:
+                cfg['narrenv'][match.group(1)] = os.environ[k]
+                logger.debug({"message": "Setting narrenv from environment",
+                              "key": match.group(1), "value": os.environ[k]})
 
 
 def check_session(userid):
@@ -197,6 +212,7 @@ def start(session, userid, request):
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
+    container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
