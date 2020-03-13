@@ -48,7 +48,7 @@ def setup(main_cfg, main_logger):
         # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
         # prefix as the key
         for k in os.environ.keys():
-            match = re.match(r"^NARRENV_(\w+)")
+            match = re.match(r"^NARRENV_(\w+)", k)
             if match:
                 cfg['narrenv'][match.group(1)] = os.environ[k]
                 logger.debug({"message": "Setting narrenv from environment",
