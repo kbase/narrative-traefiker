@@ -335,7 +335,7 @@ def find_narratives():
     names of services that are have an imageUuid with a match for "docker:"+cfg['image'], this should
     be any container running narratives
     """
-    url = "{}/stacks/{}/services".format(cfg['rancher_end_url'], cfg['rancher_stack_id'])
+    url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if not r.ok:
         raise(Exception("Error querying for services at {}: Response code {}: {}".format(url,
