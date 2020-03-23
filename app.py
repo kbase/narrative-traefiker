@@ -210,7 +210,7 @@ def get_container(userid, request, narrative):
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
-            session = start(session, userid, request)
+            session = start(session, userid)
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
                             "exception": repr(err)})

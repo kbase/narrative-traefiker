@@ -13,6 +13,7 @@ cfg = {"hostname": u"localhost",
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
        "container_name": u"narrative-{}",
+       "container_name_prespawn": u"narrative_pre-{}",
        "reload_secs": 5,
        "log_level": logging.DEBUG,
        "log_dest": None,
@@ -86,7 +87,7 @@ def check_session(userid):
     return(session_id)
 
 
-def start(session, userid, request):
+def start(session, userid, prespawn=False):
     """
     Attempts to start a new container using the rancher API. Signature is identical to the start_docker
     method, with the equivalent rancher exceptions.
@@ -201,7 +202,10 @@ def start(session, userid, request):
                         u'type': u'service',
                         u'uuid': None,
                         u'vip': None}
-    name = cfg['container_name'].format(userid)
+    if prespawn is False:
+        name = cfg['container_name'].format(userid)
+    else:
+        name = cfg['container_name_prespawn'].format(userid)
     cookie = u'{}'.format(session)
     labels = dict()
     labels["io.rancher.container.pull_image"] = u"always"
@@ -310,6 +314,37 @@ def reap_narrative(name):
         return
     else:
         raise(Exception("Problem reaping narrative {}: response code {}: {}".format(name, r.status_code, r.text)))
+
+
+def rename_narrative(name1, name2):
+    res = find_service(name1)
+    # if there is a None return, the image may have been reaped already just return
+    if res is None:
+        return
+    put_url = res['links']['self']
+    r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data={"name": name2})
+    if r.ok:
+        return
+    else:
+        raise(Exception("Problem renaming narrative {} to {}: response code {}: {}".format(name1, name2, r.status_code, r.text)))
+
+
+def find_narratives():
+    """
+    This query hits the endpoint for the stack (cfg['rancher_stack_id']), and returns a list of all the
+    names of services that are have an imageUuid with a match for "docker:"+cfg['image'], this should
+    be any container running narratives
+    """
+    url = "{}/stacks/{}/services".format(cfg['rancher_end_url'], cfg['rancher_stack_id'])
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    if not r.ok:
+        raise(Exception("Error querying for services at {}: Response code {}: {}".format(url,
+              r.status_code, r.body)))
+    results = r.json()
+    svcs = results['data']
+    imageUuid = "docker:{}".format(cfg['image'])
+    svc_names = [svc['name'] for svc in svcs if svc['launchConfig']['imageUuid'] == imageUuid]
+    return(svc_names)
 
 
 def verify_config(cfg2):
