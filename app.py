@@ -41,7 +41,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "reaper_timeout_secs": 600,
        "reaper_sleep_secs": 30,
        "debug": 0,
-       "narrenv": dict()}
+       "narrenv": dict(),
+       "num_prespawn": 5}
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -132,6 +133,25 @@ def setup_app(app):
     scheduler.start()
     scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
     signal.signal(signal.SIGUSR1, narr_status)
+    # the pre-spawning feature is only supported on rancher, if we prespawn is
+    # set for a number higher than 0, prespawn that number of narratives
+    if cfg.get("num_prespawn", 0) > 0:
+        prespawn_narrative(cfg['num_prespawn'])
+
+
+def prespawn_narrative(num):
+    """ Prespawn num narratives that incoming users can be assigned to immediately """
+    logger.info({"message": "prespawning containers", "number": num})
+    if cfg['mode'] != "rancher":
+        raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
+    for a in range(num):
+        session = random.getrandbits(128).to_bytes(16, "big").hex()
+        narr_id = session[0:4]
+        try:
+            manage_rancher.start(session, narr_id, True)
+        except Exception as err:
+            logger.critical({"message": "prespawn_narrative_exception", "session": session,
+                             "container": "{} of {}".format(a, num), "exception": repr(err)})
 
 
 def reload_msg(narrative, wait=0):
