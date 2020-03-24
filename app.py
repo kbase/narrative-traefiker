@@ -135,7 +135,7 @@ def setup_app(app):
     signal.signal(signal.SIGUSR1, narr_status)
     # the pre-spawning feature is only supported on rancher, if we prespawn is
     # set for a number higher than 0, prespawn that number of narratives
-    if cfg.get("num_prespawn", 0) > 0:
+    if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
 
 
