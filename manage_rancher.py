@@ -166,7 +166,7 @@ def start(session, userid, prespawn=False):
                             u'oomScoreAdj': None,
                             u'pidMode': None,
                             u'pidsLimit': None,
-                            u'ports': [u'8888:8888/tcp'],
+                            u'ports': [u'8888/tcp'],
                             u'privileged': False,
                             u'publishAllPorts': False,
                             u'readOnly': False,
