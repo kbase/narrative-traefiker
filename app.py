@@ -248,7 +248,7 @@ def get_container(userid, request, narrative):
             # userid. The second value is whether or not the session is to a prespawned container, no wait is necessary
             response = start(session, userid)
             session = response['session']
-            if "prespawned" in resp:
+            if "prespawned" in response:
                 resp.set_data(reload_msg(narrative, 0))
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
