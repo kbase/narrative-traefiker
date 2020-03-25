@@ -2,6 +2,8 @@ import requests
 import os
 import logging
 import re
+import random
+
 
 # Module wide logger
 logger = None
@@ -88,6 +90,52 @@ def check_session(userid):
 
 
 def start(session, userid, prespawn=False):
+    """
+    wrapper around the start_new function that checks to see if there are waiting narratives that
+    can be assigned. Note that this method is subject to race conditions by competing workers, so we
+    have 5 retries, and try to select a random waiting narrative before just spawning a new one. Someday maybe
+    we can implement something to serialize selecting narratives for assignment, but that's a ToDo item.
+    """
+    if prespawn is True:
+        start_new(session, userid, True)
+    else:
+        prespawned = find_prespawned()
+        # The number of prespawned should be pretty stable around cfg['num_prespawn'], but during a
+        # usage there might be spike that exhausts the pool of ready containers before replacements
+        # are available.
+        if len(prespawned) > 0:
+            # Spawn a replacement and immediately rename an existing container to match the
+            # userid. We are replicating the prespawn container name code here, maybe cause
+            # issues later on if the naming scheme is changed!
+            start_new(session, session[0:6], True)
+            narr_name = cfg['container_name'].format(userid)
+            offset = random.randint(0, len(prespawned)-1)
+            session = None
+            # Try max(5, # of prespawned) times to use an existing narrative, on success assign the session and break
+            for attempt in range(max(5, len(prespawned))):
+                candidate = prespawned[(offset+attempt) % len(prespawned)]
+                try:
+                    rename_narrative(candidate, narr_name)
+                    container = find_service(narr_name)
+                    session = container['launchConfig']['labels']['session_id']
+                    logger.info({"message": "assigned_container", "userid": userid, "name": narr_name, "session_id": session,
+                                 "client_ip": "127.0.0.1", "attempt": attempt, "status": "success"})
+                    break
+                except Exception as ex:
+                    logger.info({"message": "assigned_container_fail", "userid": userid, "name": narr_name, "session_id": session,
+                                 "client_ip": "127.0.0.1", "attempt": attempt, "status": "fail", "error": str(ex)})
+            if session:
+                return(session)
+            else:
+                # Well, that was a bust, just spin up one explicitly for this user. Maybe we hit a race condition where all of the
+                # cached containers have been assigned between when we queried and when we tried to rename it.
+                # ToDo: need to write a pool watcher thread that wakes up periodically to make sure the number of prespawned
+                # narratives are still at the desired level. Shouldn't be needed since there should be a 1:1 between assigning
+                # and spawning replacements, but errors happen
+                return(start_new(session, userid, False))
+
+
+def start_new(session, userid, prespawn=False):
     """
     Attempts to start a new container using the rancher API. Signature is identical to the start_docker
     method, with the equivalent rancher exceptions.
@@ -230,17 +278,7 @@ def start(session, userid, prespawn=False):
             logger.error(msg)
             raise(Exception(msg))
     except Exception as ex:
-        # If there is a race condition because a container has already started, then this should catch it.
-        # Try to get the session for it, if that fails then bail with error message
-        # session = check_session(userid)
-        # if session is None:
-        #    raise(err)
-        # else:
-        #    logger.info(message="previous_session", userid=userid, name=name, session_id=session, client_ip=request.remote_addr)
-        #    container = client.get_container(name)
         raise(ex)
-    # if container.status != u"created":
-    #    raise(Exception("Error starting container: container status {}".format(container.status)))
     return(session)
 
 
@@ -327,6 +365,13 @@ def rename_narrative(name1, name2):
         return
     else:
         raise(Exception("Problem renaming narrative {} to {}: response code {}: {}".format(name1, name2, r.status_code, r.text)))
+
+
+def find_prespawned():
+    """ returns a list of the prespawned narratives waiting to be assigned """
+    narratives = find_narratives()
+    idle_narr = [narr for narr in narratives if cfg['container_name_prespawn'].format("") in narr]
+    return(idle_narr)
 
 
 def find_narratives():
