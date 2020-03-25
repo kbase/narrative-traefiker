@@ -140,19 +140,32 @@ def setup_app(app):
         prespawn_narrative(cfg['num_prespawn'])
 
 
+def get_prespawned():
+    """ returns a list of the prespawned narratives waiting to be assigned """
+    if cfg["mode"] != "rancher":
+        raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
+    narratives = manage_rancher.find_narratives()
+    idle_narr = [narr for narr in narratives if cfg['container_name_prespawn'].format("") in narr]
+    return(idle_narr)
+
+
 def prespawn_narrative(num):
     """ Prespawn num narratives that incoming users can be assigned to immediately """
     logger.info({"message": "prespawning containers", "number": num})
     if cfg['mode'] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
-    for a in range(num):
-        session = random.getrandbits(128).to_bytes(16, "big").hex()
-        narr_id = session[0:4]
-        try:
-            manage_rancher.start(session, narr_id, True)
-        except Exception as err:
-            logger.critical({"message": "prespawn_narrative_exception", "session": session,
-                             "container": "{} of {}".format(a, num), "exception": repr(err)})
+    prespawned = get_prespawned()
+    num -= len(prespawned)
+    logger.info({"message": "found {} already waiting narratives".format(len(prespawned))})
+    if num > 0:
+        for a in range(num):
+            session = random.getrandbits(128).to_bytes(16, "big").hex()
+            narr_id = session[0:6]
+            try:
+                manage_rancher.start(session, narr_id, True)
+            except Exception as err:
+                logger.critical({"message": "prespawn_narrative_exception", "session": session,
+                                "container": "{} of {}".format(a, num), "exception": repr(err)})
 
 
 def reload_msg(narrative, wait=0):
