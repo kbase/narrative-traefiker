@@ -390,7 +390,7 @@ def hello(narrative):
     if 'userid' in auth_status:
         resp = get_container(auth_status['userid'], request, narrative)
     else:
-        if (auth_status['error'] in ['auth_error', "no_cookie"]) and (cfg['auth_redirect'] is not None):
+        if (auth_status['error'] == "no_cookie") and (cfg['auth_redirect'] is not None):
             resp = auth_redirect(cfg['auth_redirect'].format(request.url))
         else:
             resp = error_response(auth_status, request)
