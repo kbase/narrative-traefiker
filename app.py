@@ -18,6 +18,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 cfg = {"docker_url": u"unix://var/run/docker.sock",
        "hostname": u"localhost",
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
+       "auth_redirect": None,   # Python string template for the URL to redirect with {} for the return URL, if None will just display error page
        "image": u"kbase/narrative:latest",
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
@@ -190,6 +191,20 @@ def container_err_msg(message):
 <body>
 There was an error starting your narrative: {}
 please contact KBase support staff.
+</body>
+</html>
+"""
+    return msg.format(message)
+
+
+def auth_redirect(message):
+    msg = """
+<html>
+<head>
+<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={"path":"{},"external":true}'">
+</head>
+<body>
+
 </body>
 </html>
 """
@@ -375,7 +390,10 @@ def hello(narrative):
     if 'userid' in auth_status:
         resp = get_container(auth_status['userid'], request, narrative)
     else:
-        resp = error_response(auth_status, request)
+        if (auth_status['error'] == 'auth_error') and (cfg['auth_redirect'] is not None):
+            resp = auth_redirect(cfg['auth_redirect'].format(request.url))
+        else:
+            resp = error_response(auth_status, request)
     return resp
 
 
