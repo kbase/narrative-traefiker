@@ -246,8 +246,8 @@ def get_container(userid, request, narrative):
         try:
             # Try to get a narrative session, the session value returned is the one that has been assigned to the
             # userid. The second value is whether or not the session is to a prespawned container, no wait is necessary
-            resp = start(session, userid)
-            session = resp['session']
+            response = start(session, userid)
+            session = response['session']
             if "prespawned" in resp:
                 resp.set_data(reload_msg(narrative, 0))
         except Exception as err:
