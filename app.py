@@ -356,6 +356,7 @@ def reaper():
         logger.info({"message": msg})
         try:
             reap_narrative(name)
+            del narr_activity[name]
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
 
