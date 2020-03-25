@@ -93,7 +93,7 @@ def check_session(userid):
     return(session_id)
 
 
-def start(session, userid, request):
+def start(session, userid):
     """
     Attempts to start a docker container. Takes the suggested session id and a username
     Returns the final session id ( in case there was a race condition and another session was already started).
@@ -114,7 +114,7 @@ def start(session, userid, request):
         container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
                                           auto_remove=True, name=name, network=cfg["dock_net"])
         logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name,
-                    "session_id": session, "client_ip": request.remote_addr})
+                    "session_id": session})
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
         # Try to get the session for it, if that fails then bail with error message
@@ -122,8 +122,8 @@ def start(session, userid, request):
         if session is None:
             raise(err)
         else:
-            logger.info({"message": "previous_session", "userid": userid, "name": name, "session_id": session, "client_ip": request.remote_addr})
+            logger.info({"message": "previous_session", "userid": userid, "name": name, "session_id": session})
             container = client.get_container(name)
     if container.status != u"created":
         raise(Exception("Error starting container: container status {}".format(container.status)))
-    return(session)
+    return({"session": session})

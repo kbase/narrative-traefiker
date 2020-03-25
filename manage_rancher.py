@@ -125,14 +125,14 @@ def start(session, userid, prespawn=False):
                     logger.info({"message": "assigned_container_fail", "userid": userid, "name": narr_name, "session_id": session,
                                  "client_ip": "127.0.0.1", "attempt": attempt, "status": "fail", "error": str(ex)})
             if session:
-                return(session)
+                return({"session": session, "prespawned": True})
             else:
                 # Well, that was a bust, just spin up one explicitly for this user. Maybe we hit a race condition where all of the
                 # cached containers have been assigned between when we queried and when we tried to rename it.
                 # ToDo: need to write a pool watcher thread that wakes up periodically to make sure the number of prespawned
                 # narratives are still at the desired level. Shouldn't be needed since there should be a 1:1 between assigning
                 # and spawning replacements, but errors happen
-                return(start_new(session, userid, False))
+                return({"session": start_new(session, userid, False)})
 
 
 def start_new(session, userid, prespawn=False):

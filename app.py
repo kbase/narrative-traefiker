@@ -244,7 +244,12 @@ def get_container(userid, request, narrative):
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
-            session = start(session, userid)
+            # Try to get a narrative session, the session value returned is the one that has been assigned to the
+            # userid. The second value is whether or not the session is to a prespawned container, no wait is necessary
+            resp = start(session, userid)
+            session = resp['session']
+            if "prespawned" in resp:
+                resp.set_data(reload_msg(narrative, 0))
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
                             "exception": repr(err)})
