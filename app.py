@@ -391,6 +391,8 @@ def hello(narrative):
         resp = get_container(auth_status['userid'], request, narrative)
     else:
         if (auth_status['error'] == "no_cookie") and (cfg['auth_redirect'] is not None):
+            logger.debug({"message": "Redirecting user for auth_token", "auth_redirect": cfg['auth_redirect'],
+                          "request.url": request.url})
             resp = auth_redirect(cfg['auth_redirect'].format(request.url))
         else:
             resp = error_response(auth_status, request)
