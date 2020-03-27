@@ -1,6 +1,6 @@
 import flask
 import requests
-from urllib import quote
+from urllib.parse import quote
 import os
 import random
 import logging
