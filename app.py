@@ -1,5 +1,6 @@
 import flask
 import requests
+from urllib import quote
 import os
 import random
 import logging
@@ -203,18 +204,18 @@ please contact KBase support staff.
     return msg.format(message)
 
 
-def auth_redirect(message):
+def auth_redirect(url):
     msg = """
 <html>
 <head>
-<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={{"path":"{},"external":true}}'">
+<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={{\"path\":\"{}\",\"external\":true}}'">
 </head>
 <body>
 
 </body>
 </html>
 """
-    return msg.format(message)
+    return msg.format(quote(url))
 
 
 def valid_request(request):
