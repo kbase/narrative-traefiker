@@ -77,7 +77,12 @@ def setup_app(app):
 
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
-            cfg[cfg_item] = os.environ[cfg_item]
+            if isinstance(cfg[cfg_item], int):
+                cfg[cfg_item] = int(os.environ[cfg_item])
+            elif isinstance(cfg[cfg_item], float):
+                cfg[cfg_item] = float(os.environ[cfg_item])
+            else:
+                cfg[cfg_item] = os.environ[cfg_item]
     # To support injecting arbitrary environment variables into the narrative container, we
     # look for any environment variable with the prefix "NARRENV_" and add it into a narrenv
     # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
@@ -85,14 +90,7 @@ def setup_app(app):
     for k in os.environ.keys():
         match = re.match(r"^NARRENV_(\w+)", k)
         if match:
-            if match.group(1) not in cfg:
-                cfg['narrenv'][match.group(1)] = os.environ[k]
-            elif isinstance(cfg['narrenv'][match.group(1)], int):
-                cfg['narrenv'][match.group(1)] = int(os.environ[k])
-            elif isinstance(cfg['narrenv'][match.group(1)], float):
-                cfg['narrenv'][match.group(1)] = float(os.environ[k])
-            else:
-                cfg['narrenv'][match.group(1)] = os.environ[k]
+            cfg['narrenv'][match.group(1)] = os.environ[k]
             logger.debug({"message": "Setting narrenv from environment",
                           "key": match.group(1), "value": os.environ[k]})
 
