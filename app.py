@@ -85,7 +85,12 @@ def setup_app(app):
     for k in os.environ.keys():
         match = re.match(r"^NARRENV_(\w+)", k)
         if match:
-            cfg['narrenv'][match.group(1)] = os.environ[k]
+            if isinstance(cfg['narrenv'][match.group(1)], int):
+                cfg['narrenv'][match.group(1)] = int(os.environ[k])
+            elif isinstance(cfg['narrenv'][match.group(1)], float):
+                cfg['narrenv'][match.group(1)] = float(os.environ[k])
+            else:
+                cfg['narrenv'][match.group(1)] = os.environ[k]
             logger.debug({"message": "Setting narrenv from environment",
                           "key": match.group(1), "value": os.environ[k]})
 
