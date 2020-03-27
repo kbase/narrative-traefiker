@@ -18,7 +18,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 cfg = {"docker_url": u"unix://var/run/docker.sock",
        "hostname": u"localhost",
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
-       "auth_redirect": None,   # Python string template for the URL to redirect with {} for the return URL, if None will just display error page
        "image": u"kbase/narrative:latest",
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
@@ -77,6 +76,8 @@ def setup_app(app):
 
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
+            logger.info({"message": "Setting config from environment",
+                         "key": cfg_item, "value": os.environ[cfg_item]})
             if isinstance(cfg[cfg_item], int):
                 cfg[cfg_item] = int(os.environ[cfg_item])
             elif isinstance(cfg[cfg_item], float):
@@ -91,8 +92,8 @@ def setup_app(app):
         match = re.match(r"^NARRENV_(\w+)", k)
         if match:
             cfg['narrenv'][match.group(1)] = os.environ[k]
-            logger.debug({"message": "Setting narrenv from environment",
-                          "key": match.group(1), "value": os.environ[k]})
+            logger.info({"message": "Setting narrenv from environment",
+                         "key": match.group(1), "value": os.environ[k]})
 
     # Configure logging
     class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -206,7 +207,7 @@ def auth_redirect(message):
     msg = """
 <html>
 <head>
-<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={"path":"{},"external":true}'">
+<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={{"path":"{},"external":true}}'">
 </head>
 <body>
 
