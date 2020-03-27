@@ -384,7 +384,7 @@ def hello(narrative):
         resp = get_container(auth_status['userid'], request, narrative)
     else:
         if auth_status['error'] == "no_cookie":
-            next_request = '{"path":"{}","external":true}'.format(request.full_path)
+            next_request = '{{"path":"{}","external":true}}'.format(request.full_path)
             logger.debug({"message": "Redirecting user for no_cookie", "nextrequest": request.url})
             resp = flask.redirect("/#login?nextrequest={}".format(quote_plus(next_request)))
         else:
