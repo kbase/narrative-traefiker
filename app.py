@@ -1,6 +1,6 @@
 import flask
 import requests
-from urllib.parse import quote
+from urllib.parse import quote_plus
 import os
 import random
 import logging
@@ -204,20 +204,6 @@ please contact KBase support staff.
     return msg.format(message)
 
 
-def auth_redirect(url):
-    msg = """
-<html>
-<head>
-<META HTTP-EQUIV="refresh" CONTENT="0;URL='/#login?nextrequest={{\"path\":\"{}\",\"external\":true}}'">
-</head>
-<body>
-
-</body>
-</html>
-"""
-    return msg.format(quote(url))
-
-
 def valid_request(request):
     """
     Validate request has a legit auth token and return a dictionary that has a userid field if
@@ -398,8 +384,9 @@ def hello(narrative):
         resp = get_container(auth_status['userid'], request, narrative)
     else:
         if auth_status['error'] == "no_cookie":
-            logger.debug({"message": "Redirecting user for auth_token", "return request.url": request.url})
-            resp = auth_redirect(request.url)
+            next_request = '{"path":"{}","external":true}'.format(request.full_path)
+            logger.debug({"message": "Redirecting user for no_cookie", "nextrequest": request.url})
+            resp = flask.redirect("/#login?nextrequest={}".format(quote_plus(next_request)))
         else:
             resp = error_response(auth_status, request)
     return resp
