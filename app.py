@@ -386,7 +386,7 @@ def hello(narrative):
         if auth_status['error'] == "no_cookie":
             next_request = '{{"path":"{}","external":true}}'.format(request.full_path)
             logger.debug({"message": "Redirecting user for no_cookie", "nextrequest": request.url})
-            resp = flask.redirect("http://ci.kbase.us/#login?nextrequest={}".format(quote_plus(next_request)))
+            resp = flask.redirect("/#login?nextrequest={}".format(quote_plus(next_request)))
         else:
             resp = error_response(auth_status, request)
     return resp
