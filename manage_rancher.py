@@ -290,8 +290,10 @@ def find_stack():
     """
     r = requests.get(cfg['rancher_meta']+"2016-07-29/self/stack/environment_name")
     env_name = r.text
+    logger.info("Found environment name: {}".format(env_name))
     r = requests.get(cfg['rancher_meta']+"2016-07-29/self/stack/name")
     stack_name = r.text
+    logger.info("Found stack name: {}".format(stack_name))
     r = requests.get(cfg['rancher_url']+"projects", auth=(cfg['rancher_user'], cfg['rancher_password']))
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
