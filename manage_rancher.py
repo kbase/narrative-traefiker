@@ -264,6 +264,7 @@ def start_new(session, userid, prespawn=False):
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
+    container_config['launchConfig']['imageUuid'] = "docker:{}".format(cfg['image'])
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
