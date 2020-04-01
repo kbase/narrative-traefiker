@@ -335,6 +335,7 @@ def find_image(name):
         if container is not None:
             src, image = container["launchConfig"]["imageUuid"].split(":", 1)
         else:
+            logger.info("Could not find_service named {}".format(name))
             image = None
         return(image)
     except Exception as ex:  # Just reraise any other exception

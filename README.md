@@ -24,3 +24,13 @@ The following labels need to be set to have traefik recognize this container and
 * traefik.http.routers.authsvc.entrypoints = web
 
 A port has to be exposed on this container for traefik to properly route to it. Internally this service uses port 5000, recommendation is to export 5000 as well.
+
+The location for finding metrics on container activity is in the configuration "traefik_metrics" and defaults to "http://traefik:8080/metrics". This means the traefik service needs to be named "traefik" and exposing metrics on port 8080.
+
+The code is currently configured to assume that the name of the rancher stack is "traefik", if it is named otherwise there will be problems with resolving names of containers for reaping ( ToDo: fix this )
+
+# Caveats #
+
+The reaper algorithm is based on the metrics that Traefik reports for activity. If there has been no traffic to a container/service then it will not appear among the metrics. This means that it won't be noticed for the purposes of reaping. Restarting traefik means that metrics for idle narratives will be wiped out, and they won't be reaped. (ToDo: Fix )
+
+
