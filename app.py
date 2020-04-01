@@ -354,7 +354,11 @@ def reaper():
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
     except Exception as e:
-        logger.critical({"message": "ERROR: {}".format(repr(e))})
+        exc_type, exc_obj, tb = sys.exc_info()
+        f = tb.tb_frame
+        lineno = tb.tb_lineno
+        filename = f.f_code.co_filename
+        logger.critical({"message": "ERROR: {}".format(repr(e)), "file": filename, "line num": lineno})
         return
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
