@@ -294,6 +294,7 @@ def find_stack():
     r = requests.get(cfg['rancher_meta']+"2016-07-29/self/stack/name")
     stack_name = r.text
     logger.info("Found stack name: {}".format(stack_name))
+    cfg['stack_name'] = stack_name
     r = requests.get(cfg['rancher_url']+"projects", auth=(cfg['rancher_user'], cfg['rancher_password']))
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
@@ -311,7 +312,8 @@ def find_service(traefikname):
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
     if (exactly) one isn't found.
     """
-    name = traefikname.replace("_traefik", "")  # Remove trailing _traefik suffix that traefik adds
+    stack_suffix = "_{}".format(cfg['stack_name'])
+    name = traefikname.replace(stack_suffix, "")  # Remove trailing _traefik suffix that traefik adds
     url = "{}/service?name={}".format(cfg['rancher_env_url'], name)
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
