@@ -398,7 +398,7 @@ def find_narratives():
     return(svc_names)
 
 
-def find_narrative_labels(svc_list: list[str]) -> dict[dict]:
+def find_narrative_labels(svc_list: list) -> dict:
     """
     Takes a list of narrative servicenames and return a dictionary keyed on servicename that
     contains the label information for each service.

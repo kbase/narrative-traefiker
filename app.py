@@ -346,7 +346,7 @@ def get_active_traefik_svcs():
         raise(e)
 
 
-def versiontuple(v: str) -> tuple[int, int, int]:
+def versiontuple(v: str) -> tuple:
     """
     Function to converts a version string into a tuple that can be compared, copied from
     https://stackoverflow.com/questions/11887762/how-do-i-compare-version-numbers-in-python/21065570
