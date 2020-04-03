@@ -391,9 +391,11 @@ def narrative_shutdown():
         if cfg['mode'] == "rancher":
             check_session = manage_rancher.check_session
             reap_narrative = manage_rancher.reap_narrative
+            naming_regex = "^{}_"
         else:
             check_session = manage_docker.check_session
             reap_narrative = manage_docker.reap_narrative
+            naming_regex = "^{}$"
         session_id = check_session(userid)
         logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
 
@@ -404,7 +406,13 @@ def narrative_shutdown():
                 name = cfg['container_name'].format(userid)
                 logger.debug({"message": "narrative_shutdown reaping", "session_id": session_id})
                 reap_narrative(name)
-                del narr_activity[name]
+                # Try to clear the narrative out of the narr_activity dict, by matching the container
+                # name as the priagainst what Traefik would call
+                name_match = naming_regex.format(name)
+                for narr_name in narr_activity.keys():
+                    if re.match(name_match, narr_name):
+                        del narr_activity[narr_name]
+                        break
                 resp = flask.Response("Service {} deleted".format(name), 200)
             except Exception as e:
                 logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
