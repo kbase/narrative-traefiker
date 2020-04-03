@@ -398,6 +398,29 @@ def find_narratives():
     return(svc_names)
 
 
+def find_narrative_labels(svc_list: list[str]) -> dict[dict]:
+    """
+    Takes a list of narrative servicenames and return a dictionary keyed on servicename that
+    contains the label information for each service.
+    """
+    label_dict = dict()
+    for svc in svc_list:
+        try:
+            svc_obj = find_service(svc)
+            url = svc_obj['links']['instances']
+            r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+            # The instance should be there because the reaper shouldn't delete a container during this
+            # functions run, throw an error
+            if not r.ok:
+                raise(Exception("Error querying for instance at {}: Response code {}: {}".format(url,
+                      r.status_code, r.body)))
+            results = r.json()
+            label_dict[svc] = results['data'][0]['labels']
+        except Exception as ex:
+            logger.critical("Error querying rancher instance info for {}: {}".format(svc, str(ex)))
+    return(label_dict)
+
+
 def verify_config(cfg2):
     """
     Check that we can access the rancher api, then make sure that the endpoints for the environment and the stack_id are good.

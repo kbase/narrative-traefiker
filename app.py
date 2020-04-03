@@ -25,6 +25,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "kbase_cookie": u"kbase_session",
        "container_name": u"narrative-{}",
        "container_name_prespawn": u"narrativepre-{}",
+       "narrative_version": "/narrative_version",
        "narr_img": "kbase/narrative",
        "container_prefix": "narrative",
        "traefik_metrics": "http://traefik:8080/metrics",
@@ -58,6 +59,7 @@ app = flask.Flask(__name__)
 scheduler = BackgroundScheduler()
 
 narr_activity = dict()
+narrative_last_version = None
 
 
 def narr_status(signalNumber, frame):
@@ -342,6 +344,31 @@ def get_active_traefik_svcs():
         filename = f.f_code.co_filename
         logger.critical({"message": "ERROR: {}".format(repr(e)), "file": filename, "line num": lineno})
         raise(e)
+
+
+def versiontuple(v: str) -> tuple[int, int, int]:
+    """
+    Function to converts a version string into a tuple that can be compared, copied from
+    https://stackoverflow.com/questions/11887762/how-do-i-compare-version-numbers-in-python/21065570
+    """
+    return tuple(map(int, (v.split("."))))
+
+
+def latest_narr_version() -> str:
+    """
+    Queries cfg['narrative_revsion'] and returns the version string. Throws exception if there is a problem.
+    """
+    try:
+        r = requests.get(cfg['narrative_version'])
+        resp = r.json()
+        if r.status_code == 200:
+            version = resp['version']
+        else:
+            raise(Exception("Error querying {} for version: {} {}".format(cfg['narrative_version'],
+                            r.status_code, r.text)))
+    except Exception as err:
+        raise(err)
+    return(version)
 
 
 def reaper():
