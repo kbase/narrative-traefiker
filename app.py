@@ -374,6 +374,44 @@ def reaper():
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
 
 
+@app.route("/narrative_shutdown/" + '<path:narrative>', methods=['DELETE'])
+def narrative_shutdown(narrative):
+    """
+    This handler takes request, and looks for an auth token, if both are present it
+    looks for and sessions associated with that userid and calls the
+    rancher API to delete that service. Returns a 401 error if there isn't an auth token, if
+    there is an auth token then try to delete all of the sessions that are associated with that
+    userid
+    """
+    request = flask.request
+    auth_status = valid_request(request)
+    if 'userid' in auth_status:
+        userid = auth_status['userid']
+        if cfg['mode'] == "rancher":
+            check_session = manage_rancher.check_session
+            reap_narrative = manage_rancher.reap_narrative
+        else:
+            check_session = manage_docker.check_session
+            reap_narrative = manage_docker.reap_narrative
+        session_id = check_session('userid')
+        if session_id is None:
+            resp = flask.Response('No sessions found for user', 404)
+        else:
+            try:
+                name = cfg['container_name'].format(userid)
+                reap_narrative(name)
+                del narr_activity[name]
+                resp = flask.Response("Service {} deleted".format(name), 200)
+            except Exception as e:
+                logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+                resp = flask.Response("Error deleteing service {}: {}".format(name, repr(e)), 200)
+    else:
+        if auth_status['error'] == "no_cookie":
+            logger.info({"message": "Unauthenticated narrative_shutdown request", "": request.url})
+            resp = flask.Response('Valid kbase authentication token required', 401)
+    return resp
+
+
 @app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
     """
@@ -384,7 +422,6 @@ def hello(narrative):
     """
     request = flask.request
     auth_status = valid_request(request)
-    # raise
     if 'userid' in auth_status:
         resp = get_container(auth_status['userid'], request, narrative)
     else:
