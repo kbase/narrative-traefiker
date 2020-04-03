@@ -374,7 +374,7 @@ def reaper():
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
 
 
-@app.route("/narrative_shutdown/" + '<path:narrative>', methods=['DELETE'])
+@app.route("/narrative_shutdown/", methods=['DELETE'])
 def narrative_shutdown(narrative):
     """
     This handler takes request, and looks for an auth token, if both are present it
@@ -410,9 +410,7 @@ def narrative_shutdown(narrative):
                 logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
                 resp = flask.Response("Error deleteing service {}: {}".format(name, repr(e)), 200)
     else:
-        if auth_status['error'] == "no_cookie":
-            logger.info({"message": "Unauthenticated narrative_shutdown request", "": request.url})
-            resp = flask.Response('Valid kbase authentication token required', 401)
+        resp = flask.Response('Valid kbase authentication token required', 401)
     return resp
 
 
