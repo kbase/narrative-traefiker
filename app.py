@@ -375,7 +375,8 @@ def reaper():
 
 
 @app.route("/narrative_shutdown/", methods=['DELETE'])
-def narrative_shutdown():
+@app.route("/narrative_shutdown/<path:username>", methods=['DELETE'])
+def narrative_shutdown(username=None):
     """
     This handler takes request, and looks for an auth token, if both are present it
     looks for and sessions associated with that userid and calls the
