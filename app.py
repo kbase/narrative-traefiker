@@ -385,6 +385,7 @@ def narrative_shutdown(narrative):
     """
     request = flask.request
     auth_status = valid_request(request)
+    logger.info({"message": "narrative_shutdown called", "auth_status": str(auth_status)})
     if 'userid' in auth_status:
         userid = auth_status['userid']
         if cfg['mode'] == "rancher":
@@ -394,11 +395,14 @@ def narrative_shutdown(narrative):
             check_session = manage_docker.check_session
             reap_narrative = manage_docker.reap_narrative
         session_id = check_session('userid')
+        logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
+
         if session_id is None:
             resp = flask.Response('No sessions found for user', 404)
         else:
             try:
                 name = cfg['container_name'].format(userid)
+                logger.debug({"message": "narrative_shutdown reaping", "session_id": session_id})
                 reap_narrative(name)
                 del narr_activity[name]
                 resp = flask.Response("Service {} deleted".format(name), 200)
