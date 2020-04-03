@@ -394,7 +394,7 @@ def narrative_shutdown(narrative):
         else:
             check_session = manage_docker.check_session
             reap_narrative = manage_docker.reap_narrative
-        session_id = check_session('userid')
+        session_id = check_session(userid)
         logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
 
         if session_id is None:
