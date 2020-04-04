@@ -371,6 +371,34 @@ def latest_narr_version() -> str:
     return(version)
 
 
+def reap_older_prespawn(version: str) -> None:
+    """
+    Reaps prespawned narratives that are older than the version string passed in
+    """
+    try:
+        logger.info({"message": "Reaping narratives older than {}".format(version)})
+        if cfg['mode'] == "rancher":
+            find_narratives = manage_rancher.find_narratives
+            find_narrative_labels = manage_rancher.find_narrative_labels
+            reap_narrative = manage_rancher.reap_narrative
+        else:
+            find_narratives = manage_docker.find_narratives
+            find_narrative_labels = manage_docker.find_narrative_labels
+            reap_narrative = manage_docker.reap_narrative
+        narr_names = find_narratives()
+        narr_labels = find_narrative_labels(narr_names)
+        ver = versiontuple(version)
+        for narr in narr_labels.keys():
+            narr_str = narr_labels[narr]['us.kbase.narrative-version']
+            narr_ver = versiontuple(narr_str)
+            if narr_ver < ver:
+                logger.info({"message": "Reaping obsolete prespawned narrative", "narrative": narr,
+                             "version": narr_str})
+                reap_narrative(narr)
+    except Exception as ex:
+        raise(ex)
+
+
 def reaper():
     """
     Reaper function, intended to be called at regular intervals
