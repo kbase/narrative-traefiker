@@ -25,7 +25,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "kbase_cookie": u"kbase_session",
        "container_name": u"narrative-{}",
        "container_name_prespawn": u"narrativepre-{}",
-       "narrative_version": "/narrative_version",
+       "narrative_version_url": "https://narrative.kbase.us/narrative_version",
        "narr_img": "kbase/narrative",
        "container_prefix": "narrative",
        "traefik_metrics": "http://traefik:8080/metrics",
@@ -359,12 +359,12 @@ def latest_narr_version() -> str:
     Queries cfg['narrative_revsion'] and returns the version string. Throws exception if there is a problem.
     """
     try:
-        r = requests.get(cfg['narrative_version'])
+        r = requests.get(cfg['narrative_version_url'])
         resp = r.json()
         if r.status_code == 200:
             version = resp['version']
         else:
-            raise(Exception("Error querying {} for version: {} {}".format(cfg['narrative_version'],
+            raise(Exception("Error querying {} for version: {} {}".format(cfg['narrative_version_url'],
                             r.status_code, r.text)))
     except Exception as err:
         raise(err)
@@ -435,13 +435,15 @@ def reaper():
     try:
         latest_version = latest_narr_version()
     except Exception as ex:
-        logger.info({"message": "Error while querying narrative_versions {}".format(repr(ex))})
+        logger.info({"message": "Error while querying narrative_version_url {}".format(repr(ex))})
     if latest_version is not None:
         try:
             if narr_last_version is None:
                 narr_last_version = latest_version
+                logger.info({"message": "narr_last_version set", "version": narr_last_version})
             elif versiontuple(latest_version) > versiontuple(narr_last_version):
                 narr_last_version = latest_version
+                logger.info({"message": "narr_last_version set", "version": narr_last_version})
                 reap_older_prespawn(latest_version)
         except Exception as ex:
             logger.critical({"message": "Error while checking prespawned narrative versions {}".format(repr(ex))})
