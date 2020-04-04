@@ -59,7 +59,7 @@ app = flask.Flask(__name__)
 scheduler = BackgroundScheduler()
 
 narr_activity = dict()
-narrative_last_version = None
+narr_last_version = None
 
 
 def narr_status(signalNumber, frame):
@@ -403,6 +403,8 @@ def reaper():
     """
     Reaper function, intended to be called at regular intervals
     """
+    global narr_last_version
+    global narr_activity
     logger.info({"message": "Reaper process running"})
     if cfg['mode'] == 'docker':
         reap_narrative = manage_docker.reap_narrative
@@ -427,6 +429,26 @@ def reaper():
             del narr_activity[name]
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+    # Try the narrative_version endpoint to see if we need to update the prespawned
+    # narratives
+    latest_version = None
+    try:
+        latest_version = latest_narr_version()
+    except Exception as ex:
+        logger.info({"message": "Error while querying narrative_versions {}".format(repr(ex))})
+    if latest_version is not None:
+        try:
+            if narr_last_version is None:
+                narr_last_version = latest_version
+            elif versiontuple(latest_version) > versiontuple(narr_last_version):
+                narr_last_version = latest_version
+                reap_older_prespawn(latest_version)
+        except Exception as ex:
+            logger.critical({"message": "Error while checking prespawned narrative versions {}".format(repr(ex))})
+
+    # Now make sure the narrative prespawn spool is at the desired level
+    if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
+        prespawn_narrative(cfg['num_prespawn'])
 
 
 @app.route("/narrative_shutdown/", methods=['DELETE'])
