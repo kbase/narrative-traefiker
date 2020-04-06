@@ -1,13 +1,14 @@
 import docker
 import os
 import logging
+from typing import Dict, Optional
 
 
 # Module wide docker client
-client = None
+client: Optional[docker.DockerClient] = None
 
 # Module wide logger
-logger = None
+logger: Optional[logging.Logger] = None
 
 # Module wide config
 cfg = {"docker_url": u"unix://var/run/docker.sock",
@@ -23,7 +24,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "log_name": u"traefiker"}
 
 
-def setup(main_cfg, main_logger):
+def setup(main_cfg: dict, main_logger: logging.Logger) -> None:
     global cfg
     if main_cfg is not None:
         cfg = main_cfg
@@ -41,7 +42,7 @@ def setup(main_cfg, main_logger):
     client = docker.DockerClient(base_url=cfg['docker_url'])
 
 
-def verify_config(cfg):
+def verify_config(cfg: dict) -> None:
     """ Quickly test the docker socket, if it fails, rethrow the exception after some explanatory logging """
     try:
         client.containers.list()
@@ -50,7 +51,7 @@ def verify_config(cfg):
         raise(ex)
 
 
-def find_image(name):
+def find_image(name: str) -> str:
     """
     Given a service name, return the docker image that the service is running. If the service doesn't exist
     then raise and exception
@@ -64,7 +65,7 @@ def find_image(name):
     return(container.image.attrs["RepoTags"])
 
 
-def reap_narrative(container_name):
+def reap_narrative(container_name: str) -> None:
     try:
         killit = client.containers.get(container_name)
         killit.stop()
@@ -75,7 +76,7 @@ def reap_narrative(container_name):
     return
 
 
-def check_session(userid):
+def check_session(userid: str) -> str:
     """
     Check to see if we already have a container for this user by trying to pull the container object
     for the userid
@@ -93,7 +94,7 @@ def check_session(userid):
     return(session_id)
 
 
-def start(session, userid):
+def start(session: str, userid: str) -> Dict[str, str]:
     """
     Attempts to start a docker container. Takes the suggested session id and a username
     Returns the final session id ( in case there was a race condition and another session was already started).
