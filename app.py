@@ -13,7 +13,8 @@ from datetime import datetime
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from typing import Dict, List, Optional
+from types import FrameType
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -58,7 +59,8 @@ app = flask.Flask(__name__)
 
 scheduler = BackgroundScheduler()
 
-narr_activity = dict()
+narr_activity: Dict[str, time.time] = dict()
+
 narr_last_version = None
 
 
@@ -399,7 +401,7 @@ def reap_older_prespawn(version: str) -> None:
         raise(ex)
 
 
-def reaper():
+def reaper() -> None:
     """
     Reaper function, intended to be called at regular intervals
     """

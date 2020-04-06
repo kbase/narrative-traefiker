@@ -3,6 +3,7 @@ import os
 import logging
 import re
 import random
+from typing import Dict, List, Optional
 
 
 # Module wide logger
@@ -421,7 +422,7 @@ def find_narrative_labels(svc_list: list) -> dict:
     return(label_dict)
 
 
-def verify_config(cfg2):
+def verify_config(cfg2: dict) -> None:
     """
     Check that we can access the rancher api, then make sure that the endpoints for the environment and the stack_id are good.
     If we have the rancher_url endpoint, but nothing else, try to figure it out using the rancher-metadata endpoint
