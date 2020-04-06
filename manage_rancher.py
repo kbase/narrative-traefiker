@@ -3,10 +3,11 @@ import os
 import logging
 import re
 import random
+from typing import Dict, List, Optional
 
 
 # Module wide logger
-logger = None
+logger: Optional[logging.Logger] = None
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"hostname": u"localhost",
@@ -30,7 +31,7 @@ cfg = {"hostname": u"localhost",
        "narrenv": dict()}
 
 
-def setup(main_cfg, main_logger):
+def setup(main_cfg: dict, main_logger: logging.Logger) -> None:
     global cfg
     global logger
 
@@ -58,7 +59,7 @@ def setup(main_cfg, main_logger):
                               "key": match.group(1), "value": os.environ[k]})
 
 
-def check_session(userid):
+def check_session(userid: str) -> str:
     """
     Check to see if we already have a container for this user by trying to pull the container object
     for the userid
@@ -89,7 +90,7 @@ def check_session(userid):
     return(session_id)
 
 
-def start(session, userid, prespawn=False):
+def start(session: str, userid: str, prespawn: Optional[bool] = False) -> Dict[str, str]:
     """
     wrapper around the start_new function that checks to see if there are waiting narratives that
     can be assigned. Note that this method is subject to race conditions by competing workers, so we
@@ -135,7 +136,7 @@ def start(session, userid, prespawn=False):
                 return({"session": start_new(session, userid, False)})
 
 
-def start_new(session, userid, prespawn=False):
+def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     """
     Attempts to start a new container using the rancher API. Signature is identical to the start_docker
     method, with the equivalent rancher exceptions.
@@ -283,7 +284,7 @@ def start_new(session, userid, prespawn=False):
     return(session)
 
 
-def find_stack():
+def find_stack() -> Dict[str, str]:
     """
     Query the rancher-metadata service for the name of the stack we're running in, and then
     go to the rancher_url and walk down through the stacks in the rancher environments we
@@ -308,7 +309,7 @@ def find_stack():
     return({"url": env_endpoint, "stack_id": x[0]})
 
 
-def find_service(traefikname):
+def find_service(traefikname: str) -> dict:
     """
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
     if (exactly) one isn't found.
@@ -330,7 +331,7 @@ def find_service(traefikname):
         raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
 
 
-def find_image(name):
+def find_image(name: str) -> str:
     """
     Given a service name, return the docker image that the service is running. If the service doesn't exist
     then return None, as this may mean that service has been reaped already
@@ -347,7 +348,7 @@ def find_image(name):
         raise(ex)
 
 
-def reap_narrative(name):
+def reap_narrative(name: str) -> None:
     res = find_service(name)
     # if there is a None return, the image may have been reaped already just return
     if res is None:
@@ -360,7 +361,7 @@ def reap_narrative(name):
         raise(Exception("Problem reaping narrative {}: response code {}: {}".format(name, r.status_code, r.text)))
 
 
-def rename_narrative(name1, name2):
+def rename_narrative(name1: str, name2: str) -> None:
     res = find_service(name1)
     # if there is a None return, the image may have been reaped already just return
     if res is None:
@@ -373,14 +374,14 @@ def rename_narrative(name1, name2):
         raise(Exception("Problem renaming narrative {} to {}: response code {}: {}".format(name1, name2, r.status_code, r.text)))
 
 
-def find_prespawned():
+def find_prespawned() -> List[str]:
     """ returns a list of the prespawned narratives waiting to be assigned """
     narratives = find_narratives()
     idle_narr = [narr for narr in narratives if cfg['container_name_prespawn'].format("") in narr]
     return(idle_narr)
 
 
-def find_narratives():
+def find_narratives() -> List[str]:
     """
     This query hits the endpoint for the stack (cfg['rancher_stack_id']), and returns a list of all the
     names of services that are have an imageUuid with a match for "docker:"+cfg['image'], this should
@@ -398,7 +399,7 @@ def find_narratives():
     return(svc_names)
 
 
-def verify_config(cfg2):
+def verify_config(cfg2: dict) -> None:
     """
     Check that we can access the rancher api, then make sure that the endpoints for the environment and the stack_id are good.
     If we have the rancher_url endpoint, but nothing else, try to figure it out using the rancher-metadata endpoint
