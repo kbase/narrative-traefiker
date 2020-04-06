@@ -16,36 +16,36 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 # Setup default configuration values, overriden by values from os.environ later
-cfg = {"docker_url": u"unix://var/run/docker.sock",
-       "hostname": u"localhost",
-       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
-       "image": u"kbase/narrative:latest",
-       "es_type": "narrative-traefiker",
-       "session_cookie": u"narrative_session",
-       "kbase_cookie": u"kbase_session",
-       "container_name": u"narrative-{}",
-       "container_name_prespawn": u"narrativepre-{}",
-       "narrative_version_url": "https://narrative.kbase.us/narrative_version",
-       "narr_img": "kbase/narrative",
-       "container_prefix": "narrative",
-       "traefik_metrics": "http://traefik:8080/metrics",
-       "dock_net": u"narrative-traefiker_default",
-       "reload_secs": 10,
-       "log_level": logging.DEBUG,
-       "log_dest": None,
-       "log_name": u"traefiker",
-       "rancher_user": None,
-       "rancher_password": None,
-       "rancher_url": None,
-       "rancher_meta": "http://rancher-metadata/",
-       "rancher_env_url": None,
-       "rancher_stack_id": None,
-       "mode": None,
-       "reaper_timeout_secs": 600,
-       "reaper_sleep_secs": 30,
-       "debug": 0,
-       "narrenv": dict(),
-       "num_prespawn": 5}
+cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
+       "hostname": u"localhost",                       # hostname used for traefik router rules
+       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",  # url for authenticating tokens
+       "image": u"kbase/narrative:latest",             # image name used for spawning narratives
+       "es_type": "narrative-traefiker",               # value for type field used in logstash json ingest
+       "session_cookie": u"narrative_session",         # name of cookie used for storing session id
+       "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
+       "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
+       "container_name_prespawn": u"narrativepre-{}",  # python string template for pre-spawned narratives, userid in param
+       "narrative_version_url": "https://ci.kbase.us/narrative_version",  # url to narrative_version endpoint
+       "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
+       "container_prefix": "narrative",                # string used to match names of services/containers for reaping
+       "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
+       "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
+       "reload_secs": 10,                              # how many seconds the client should wait before reloading when no prespawned available
+       "log_level": logging.DEBUG,                     # loglevel
+       "log_dest": None,                               # log destination - currently unused
+       "log_name": u"traefiker",                       # python logger name
+       "rancher_user": None,                           # username for rancher creds
+       "rancher_password": None,                       # password for rancher creds
+       "rancher_url": None,                            # URL for the rancher API endpoint, including version
+       "rancher_meta": "http://rancher-metadata/",     # URL for the rancher-metadata service (unauthenticated)
+       "rancher_env_url": None,                        # rancher enviroment URL (under rancher_url) - self-configured if not set
+       "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
+       "mode": None,                                   # What orchestation type? "rancher" or "docker"
+       "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
+       "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
+       "debug": 0,                                     # Set debug mode
+       "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
+       "num_prespawn": 5}                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -391,7 +391,7 @@ def reap_older_prespawn(version: str) -> None:
         for narr in narr_labels.keys():
             narr_str = narr_labels[narr]['us.kbase.narrative-version']
             narr_ver = versiontuple(narr_str)
-            if narr_ver < ver:
+            if narr_ver != ver:
                 logger.info({"message": "Reaping obsolete prespawned narrative", "narrative": narr,
                              "version": narr_str})
                 reap_narrative(narr)
