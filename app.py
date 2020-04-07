@@ -10,6 +10,7 @@ import time
 import signal
 import re
 from datetime import datetime
+import json
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -519,7 +520,13 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    return(flask.Response('{{"timestamp","{}"}}'.format(datetime.now().isoformat()), 200))
+    resp_doc = {"timestamp": datetime.now().isoformat()}
+    request = flask.request
+    auth_status = valid_request(request)
+    if 'user_id' in auth_status:
+        if auth_status['user_id'] in cfg['status_users']:
+            resp_doc['reaper_status'] = narr_activity
+    return(flask.Response(json.dumps(resp_doc), 200))
 
 
 @app.route("/narrative/" + '<path:narrative>')
