@@ -46,7 +46,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",
        "reaper_sleep_secs": 30,
        "debug": 0,
        "narrenv": dict(),
-       "num_prespawn": 5}
+       "num_prespawn": 5,
+       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -429,6 +430,17 @@ def narrative_shutdown(username=None):
     else:
         resp = flask.Response('Valid kbase authentication token required', 401)
     return resp
+
+
+@app.route("/narrative_status/", methods=['GET'])
+def narrative_status():
+    """
+    Simple status endpoint to re-assure us that the service is alive. Unauthenticated access just returns
+    a 200 code with the current time in JSON string. If a kbase auth cookie is found, and the username is in the
+    list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
+    active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
+    """
+    return(flask.Response('{"timestamp","{}"}'.format(datetime.now().isoformat()), 200))
 
 
 @app.route("/narrative/" + '<path:narrative>')
