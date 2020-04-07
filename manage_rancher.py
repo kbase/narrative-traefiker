@@ -258,6 +258,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     cookie = u'{}'.format(session)
     labels = dict()
     labels["io.rancher.container.pull_image"] = u"always"
+    labels["io.rancher.container.start_once"] = u"true"
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
     rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
