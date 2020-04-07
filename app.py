@@ -519,7 +519,7 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    return(flask.Response('{"timestamp","{}"}'.format(datetime.now().isoformat()), 200))
+    return(flask.Response('{{"timestamp","{}"}}'.format(datetime.now().isoformat()), 200))
 
 
 @app.route("/narrative/" + '<path:narrative>')
