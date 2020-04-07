@@ -526,7 +526,7 @@ def narrative_status():
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
     if 'userid' in auth_status:
-        if auth_status['user_id'] in cfg['status_users']:
+        if auth_status['userid'] in cfg['status_users']:
             resp_doc['reaper_status'] = narr_activity
         else:
             logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
