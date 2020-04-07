@@ -520,12 +520,16 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
+    logger.info({"message": "Status query recieved"})
     resp_doc = {"timestamp": datetime.now().isoformat()}
     request = flask.request
     auth_status = valid_request(request)
+    logger.debug({"message": "Status query recieved", "authenticated user": auth_status.get("user_id", "__none__")})
     if 'user_id' in auth_status:
         if auth_status['user_id'] in cfg['status_users']:
             resp_doc['reaper_status'] = narr_activity
+        else:
+            logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
     return(flask.Response(json.dumps(resp_doc), 200))
 
 
