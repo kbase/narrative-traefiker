@@ -50,27 +50,27 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
-errors = None
+errors: Optional[Dict[str, str]] = None
 
 # Set a global logger instance
-logger = logging.getLogger()
+logger: logging.Logger = logging.getLogger()
 
-app = flask.Flask(__name__)
+app: flask.Flask = flask.Flask(__name__)
 
-scheduler = BackgroundScheduler()
+scheduler: BackgroundScheduler = BackgroundScheduler()
 
 narr_activity: Dict[str, time.time] = dict()
 
 narr_last_version = None
 
 
-def narr_status(signalNumber, frame):
+def narr_status(signalNumber: int, frame: FrameType) -> None:
     print("Current time: {}".format(time.asctime()))
     for container in narr_activity.keys():
         print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
 
 
-def setup_app(app):
+def setup_app(app: flask.Flask) -> None:
     global errors
     errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
               'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
@@ -152,7 +152,7 @@ def setup_app(app):
         prespawn_narrative(cfg['num_prespawn'])
 
 
-def get_prespawned():
+def get_prespawned() -> List[str]:
     """ returns a list of the prespawned narratives waiting to be assigned """
     if cfg["mode"] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
@@ -161,7 +161,7 @@ def get_prespawned():
     return(idle_narr)
 
 
-def prespawn_narrative(num):
+def prespawn_narrative(num: int) -> None:
     """ Prespawn num narratives that incoming users can be assigned to immediately """
     logger.info({"message": "prespawning containers", "number": num})
     if cfg['mode'] != "rancher":
@@ -180,7 +180,7 @@ def prespawn_narrative(num):
                                 "container": "{} of {}".format(a, num), "exception": repr(err)})
 
 
-def reload_msg(narrative, wait=0):
+def reload_msg(narrative: str, wait: int = 0) -> str:
     msg = """
 <html>
 <head>
@@ -194,7 +194,7 @@ Starting narrative - will reload shortly
     return msg.format(wait, narrative)
 
 
-def container_err_msg(message):
+def container_err_msg(message: str) -> str:
     msg = """
 <html>
 <head>
@@ -208,7 +208,7 @@ please contact KBase support staff.
     return msg.format(message)
 
 
-def valid_request(request):
+def valid_request(request: Dict[str, str]) -> str:
     """
     Validate request has a legit auth token and return a dictionary that has a userid field if
     it is legit, otherwise return the error type in the error field
@@ -232,10 +232,11 @@ def valid_request(request):
     return(auth_status)
 
 
-def get_container(userid, request, narrative):
+def get_container(userid: str, request: flask.Request, narrative: str) -> flask.Response:
     """
     Given the request object and the username from validating the token, either find or spin up
-    the narrative container that should handle this user's narrative session. Return a flask response
+    the narrative container that should handle this user's narrative session. The narrative
+    parameter is the path to the requested narrative from the original URL. Return a flask response
     object that contains the necessary cookie for traefik to use for routing, as well as a brief
     message that reloads the page so that traefik reroutes to the right place
     """
@@ -278,7 +279,7 @@ def get_container(userid, request, narrative):
     return(resp)
 
 
-def error_response(auth_status, request):
+def error_response(auth_status: Dict[str, str], request: flask.request) -> flask.Response:
     """
     Return an flask response that is appropriate for the message in the auth_status dict.
     """
@@ -297,7 +298,11 @@ def error_response(auth_status, request):
     return(resp)
 
 
-def get_active_traefik_svcs():
+def get_active_traefik_svcs() -> Dict[str, time.time]:
+    """
+    Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
+    a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
+    """
     if cfg['mode'] == 'docker':
         find_image = manage_docker.find_image
     elif cfg['mode'] == 'rancher':
@@ -403,7 +408,8 @@ def reap_older_prespawn(version: str) -> None:
 
 def reaper() -> None:
     """
-    Reaper function, intended to be called at regular intervals
+    Reaper function, intended to be called at regular intervals specified by cfg['reaper_sleep_secs'].
+    Updates last seen timestamps for narratives, reaps any that have been idle for longer than cfg['reaper_timeout_secs']
     """
     global narr_last_version
     global narr_activity
