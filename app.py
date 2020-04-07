@@ -16,38 +16,38 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 from types import FrameType
 
-
 # Setup default configuration values, overriden by values from os.environ later
-cfg = {"docker_url": u"unix://var/run/docker.sock",
-       "hostname": u"localhost",
-       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
-       "image": u"kbase/narrative:latest",
-       "es_type": "narrative-traefiker",
-       "session_cookie": u"narrative_session",
-       "kbase_cookie": u"kbase_session",
-       "container_name": u"narrative-{}",
-       "container_name_prespawn": u"narrativepre-{}",
-       "narr_img": "kbase/narrative",
-       "container_prefix": "narrative",
-       "traefik_metrics": "http://traefik:8080/metrics",
-       "dock_net": u"narrative-traefiker_default",
-       "reload_secs": 10,
-       "log_level": logging.DEBUG,
-       "log_dest": None,
-       "log_name": u"traefiker",
-       "rancher_user": None,
-       "rancher_password": None,
-       "rancher_url": None,
-       "rancher_meta": "http://rancher-metadata/",
-       "rancher_env_url": None,
-       "rancher_stack_id": None,
-       "mode": None,
-       "reaper_timeout_secs": 600,
-       "reaper_sleep_secs": 30,
-       "debug": 0,
-       "narrenv": dict(),
-       "num_prespawn": 5,
-       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}
+cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
+       "hostname": u"localhost",                       # hostname used for traefik router rules
+       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",  # url for authenticating tokens
+       "image": u"kbase/narrative:latest",             # image name used for spawning narratives
+       "es_type": "narrative-traefiker",               # value for type field used in logstash json ingest
+       "session_cookie": u"narrative_session",         # name of cookie used for storing session id
+       "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
+       "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
+       "container_name_prespawn": u"narrativepre-{}",  # python string template for pre-spawned narratives, userid in param
+       "narrative_version_url": "https://ci.kbase.us/narrative_version",  # url to narrative_version endpoint
+       "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
+       "container_prefix": "narrative",                # string used to match names of services/containers for reaping
+       "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
+       "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
+       "reload_secs": 10,                              # how many seconds the client should wait before reloading when no prespawned available
+       "log_level": logging.DEBUG,                     # loglevel
+       "log_dest": None,                               # log destination - currently unused
+       "log_name": u"traefiker",                       # python logger name
+       "rancher_user": None,                           # username for rancher creds
+       "rancher_password": None,                       # password for rancher creds
+       "rancher_url": None,                            # URL for the rancher API endpoint, including version
+       "rancher_meta": "http://rancher-metadata/",     # URL for the rancher-metadata service (unauthenticated)
+       "rancher_env_url": None,                        # rancher enviroment URL (under rancher_url) - self-configured if not set
+       "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
+       "mode": None,                                   # What orchestation type? "rancher" or "docker"
+       "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
+       "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
+       "debug": 0,                                     # Set debug mode
+       "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
+       "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
+       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}  # What users get full status from narrative_status?
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -61,6 +61,8 @@ app: flask.Flask = flask.Flask(__name__)
 scheduler: BackgroundScheduler = BackgroundScheduler()
 
 narr_activity: Dict[str, time.time] = dict()
+
+narr_last_version = None
 
 
 def narr_status(signalNumber: int, frame: FrameType) -> None:
@@ -352,11 +354,66 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
         raise(e)
 
 
+def versiontuple(v: str) -> tuple:
+    """
+    Function to converts a version string into a tuple that can be compared, copied from
+    https://stackoverflow.com/questions/11887762/how-do-i-compare-version-numbers-in-python/21065570
+    """
+    return tuple(map(int, (v.split("."))))
+
+
+def latest_narr_version() -> str:
+    """
+    Queries cfg['narrative_revsion'] and returns the version string. Throws exception if there is a problem.
+    """
+    try:
+        r = requests.get(cfg['narrative_version_url'])
+        resp = r.json()
+        if r.status_code == 200:
+            version = resp['version']
+        else:
+            raise(Exception("Error querying {} for version: {} {}".format(cfg['narrative_version_url'],
+                            r.status_code, r.text)))
+    except Exception as err:
+        raise(err)
+    return(version)
+
+
+def reap_older_prespawn(version: str) -> None:
+    """
+    Reaps prespawned narratives that are older than the version string passed in
+    """
+    try:
+        logger.info({"message": "Reaping narratives older than {}".format(version)})
+        if cfg['mode'] == "rancher":
+            find_narratives = manage_rancher.find_narratives
+            find_narrative_labels = manage_rancher.find_narrative_labels
+            reap_narrative = manage_rancher.reap_narrative
+        else:
+            find_narratives = manage_docker.find_narratives
+            find_narrative_labels = manage_docker.find_narrative_labels
+            reap_narrative = manage_docker.reap_narrative
+        narr_names = find_narratives()
+        narr_labels = find_narrative_labels(narr_names)
+        ver = versiontuple(version)
+        for narr in narr_labels.keys():
+            narr_str = narr_labels[narr]['us.kbase.narrative-version']
+            narr_ver = versiontuple(narr_str)
+            if narr_ver != ver:
+                logger.info({"message": "Reaping obsolete prespawned narrative", "narrative": narr,
+                             "version": narr_str})
+                reap_narrative(narr)
+    except Exception as ex:
+        raise(ex)
+
+
 def reaper() -> None:
     """
     Reaper function, intended to be called at regular intervals specified by cfg['reaper_sleep_secs'].
     Updates last seen timestamps for narratives, reaps any that have been idle for longer than cfg['reaper_timeout_secs']
     """
+    global narr_last_version
+    global narr_activity
     logger.info({"message": "Reaper process running"})
     if cfg['mode'] == 'docker':
         reap_narrative = manage_docker.reap_narrative
@@ -381,6 +438,28 @@ def reaper() -> None:
             del narr_activity[name]
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+    # Try the narrative_version endpoint to see if we need to update the prespawned
+    # narratives
+    latest_version = None
+    try:
+        latest_version = latest_narr_version()
+    except Exception as ex:
+        logger.info({"message": "Error while querying narrative_version_url {}".format(repr(ex))})
+    if latest_version is not None:
+        try:
+            if narr_last_version is None:
+                narr_last_version = latest_version
+                logger.info({"message": "narr_last_version set", "version": narr_last_version})
+            elif versiontuple(latest_version) > versiontuple(narr_last_version):
+                narr_last_version = latest_version
+                logger.info({"message": "narr_last_version set", "version": narr_last_version})
+                reap_older_prespawn(latest_version)
+        except Exception as ex:
+            logger.critical({"message": "Error while checking prespawned narrative versions {}".format(repr(ex))})
+
+    # Now make sure the narrative prespawn spool is at the desired level
+    if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
+        prespawn_narrative(cfg['num_prespawn'])
 
 
 @app.route("/narrative_shutdown/", methods=['DELETE'])
