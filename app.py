@@ -525,7 +525,7 @@ def narrative_status():
     request = flask.request
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
-    if 'user_id' in auth_status:
+    if 'userid' in auth_status:
         if auth_status['user_id'] in cfg['status_users']:
             resp_doc['reaper_status'] = narr_activity
         else:
