@@ -539,7 +539,7 @@ def narrative_services() -> List[dict]:
             if match:
                 info['last_ip'] = match.group(1)
                 info['created'] = match.group(2)
-        narr_services = {name: find_service(name) for name in narr_names}
+        narr_services += info
     return(narr_services)
 
 
