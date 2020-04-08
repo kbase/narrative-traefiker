@@ -512,6 +512,37 @@ def narrative_shutdown(username=None):
     return resp
 
 
+def narrative_services() -> List[dict]:
+    """
+    Queries the rancher APIs to build a list of narrative container descriptors
+    """
+    if cfg['mode'] == "rancher":
+        find_narratives = manage_rancher.find_narratives
+        find_service = manage_rancher.find_service  # ToDo: This call doesn't exist yet!
+    else:
+        find_narratives = manage_docker.find_narratives
+        find_service = manage_docker.find_service
+    narr_names = find_narratives()
+    narr_services = []
+    prespawn_pre = cfg['container_name_prespawn'].format('')
+    narr_pre = cfg['container_name'].format('')
+    for name in narr_names:
+        if name.startswith(prespawn_pre):
+            info = {"state": "queued", "session_id": "*", "instance": name}
+        else:
+            svc = find_service(name)
+            user = name.replace(narr_pre, "", 1)
+            info = {"instance": name, "state": "active", "session_id": user}
+            info["last_seen"] = datetime.now().isoformat()
+            info['session_key'] = svc['launchConfig']['labels']['session_id']
+            match = re.match(r'client-ip:(\S+) timestamp:(\S+)', svc['description'])
+            if match:
+                info['last_ip'] = match.group(1)
+                info['created'] = match.group(2)
+        narr_services = {name: find_service(name) for name in narr_names}
+    return(narr_services)
+
+
 @app.route("/narrative_status/", methods=['GET'])
 def narrative_status():
     """
@@ -528,16 +559,7 @@ def narrative_status():
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
     if 'userid' in auth_status:
         if auth_status['userid'] in cfg['status_users']:
-            resp_doc['reaper_status'] = narr_activity
-            if cfg['mode'] == "rancher":
-                find_narratives = manage_rancher.find_narratives
-                find_service = manage_rancher.find_service  # ToDo: This call doesn't exist yet!
-            else:
-                find_narratives = manage_docker.find_narratives
-                find_service = manage_docker.find_service
-            narr_names = find_narratives()
-            narr_services = {name: find_service(name) for name in narr_names}
-            resp_doc['narrative_services'] = narr_services
+            resp_doc['narrative_services'] = narrative_services()
         else:
             logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
     return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
