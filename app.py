@@ -59,11 +59,17 @@ logger: logging.Logger = logging.getLogger()
 
 app: flask.Flask = flask.Flask(__name__)
 
+# Scheduler that runs the reaper function
 scheduler: BackgroundScheduler = BackgroundScheduler()
 
+# Dictionary containing narrative names and the last seen time
 narr_activity: Dict[str, time.time] = dict()
 
+# The last version string seen for the narrative image
 narr_last_version = None
+
+# Dictionary with information about narratives currently running
+narr_services: Dict[str, time.time] = dict()
 
 
 def narr_status(signalNumber: int, frame: FrameType) -> None:
