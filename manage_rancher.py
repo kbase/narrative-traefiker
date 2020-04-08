@@ -3,6 +3,8 @@ import os
 import logging
 import re
 import random
+import flask
+from datetime import datetime
 from typing import Dict, List, Optional
 
 
@@ -262,7 +264,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
     rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
-    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], "/narrative", cookie)
+    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], "/narrative/", cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
@@ -270,15 +272,23 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
+
+    try:  # Set client ip from request object if available
+        request = flask.request
+        container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
+                                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+    except Exception:
+        logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
+
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
         logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name, "session_id": session,
-                    "client_ip": "127.0.0.1"})  # request.remote_addr)
+                    "client_ip": request.headers.get("X-Forwarded-For", None)})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
-            logger.error(msg)
+            logger.error({"message": msg})
             raise(Exception(msg))
     except Exception as ex:
         raise(ex)
@@ -368,7 +378,13 @@ def rename_narrative(name1: str, name2: str) -> None:
     if res is None:
         return
     put_url = res['links']['self']
-    r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data={"name": name2})
+    # Object with updated values for the service
+    data = {"name": name2}
+    request = flask.request
+    # On a rename, the request object should always exist, but just in case
+    data['description'] = 'client-ip:{} timestamp:{}'.format(request.headers.get('X-Forwarded-For', None),
+                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+    r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data=data)
     if r.ok:
         return
     else:

@@ -10,6 +10,7 @@ import time
 import signal
 import re
 from datetime import datetime
+import json
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -46,7 +47,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
-       "num_prespawn": 5}                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
+       "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
+       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}  # users with full narratve_status privs, env var use comma separated usernames
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -57,11 +59,17 @@ logger: logging.Logger = logging.getLogger()
 
 app: flask.Flask = flask.Flask(__name__)
 
+# Scheduler that runs the reaper function
 scheduler: BackgroundScheduler = BackgroundScheduler()
 
+# Dictionary containing narrative names and the last seen time
 narr_activity: Dict[str, time.time] = dict()
 
+# The last version string seen for the narrative image
 narr_last_version = None
+
+# Dictionary with information about narratives currently running
+narr_services: Dict[str, time.time] = dict()
 
 
 def narr_status(signalNumber: int, frame: FrameType) -> None:
@@ -81,14 +89,18 @@ def setup_app(app: flask.Flask) -> None:
 
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
-            logger.info({"message": "Setting config from environment",
-                         "key": cfg_item, "value": os.environ[cfg_item]})
+            logger.info({"message": "Setting config from environment"})
             if isinstance(cfg[cfg_item], int):
                 cfg[cfg_item] = int(os.environ[cfg_item])
             elif isinstance(cfg[cfg_item], float):
                 cfg[cfg_item] = float(os.environ[cfg_item])
+            elif isinstance(cfg[cfg_item], list):
+                cfg[cfg_item] = os.environ[cfg_item].split(',')
             else:
                 cfg[cfg_item] = os.environ[cfg_item]
+            logger.info({"message": "config set",
+                         "key": cfg_item, "value": cfg[cfg_item]})
+
     # To support injecting arbitrary environment variables into the narrative container, we
     # look for any environment variable with the prefix "NARRENV_" and add it into a narrenv
     # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
@@ -97,8 +109,8 @@ def setup_app(app: flask.Flask) -> None:
         match = re.match(r"^NARRENV_(\w+)", k)
         if match:
             cfg['narrenv'][match.group(1)] = os.environ[k]
-            logger.info({"message": "Setting narrenv from environment",
-                         "key": match.group(1), "value": os.environ[k]})
+            logger.info({"message": "config set",
+                         "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
 
     # Configure logging
     class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -252,7 +264,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     session = check_session(userid)
     resp = flask.Response(status=200)
     if session is None:
-        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
+        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
@@ -263,7 +275,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
             if "prespawned" in response:
                 resp.set_data(reload_msg(narrative, 0))
         except Exception as err:
-            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
+            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None),
                             "exception": repr(err)})
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
@@ -273,7 +285,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
+        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None), "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
@@ -292,7 +304,7 @@ def error_response(auth_status: Dict[str, str], request: flask.request) -> flask
     if auth_status['error'] == 'request_error':
         resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
-    logger.info({"message": "auth_error", "client_ip": request.remote_addr, "error": auth_status['error'],
+    logger.info({"message": "auth_error", "client_ip": request.headers.get("X-Forwarded-For", None), "error": auth_status['error'],
                 "detail": auth_status.get('message', "")})
     return(resp)
 
@@ -507,6 +519,61 @@ def narrative_shutdown(username=None):
     else:
         resp = flask.Response('Valid kbase authentication token required', 401)
     return resp
+
+
+def narrative_services() -> List[dict]:
+    """
+    Queries the rancher APIs to build a list of narrative container descriptors
+    """
+    if cfg['mode'] == "rancher":
+        find_narratives = manage_rancher.find_narratives
+        find_service = manage_rancher.find_service  # ToDo: This call doesn't exist yet!
+    else:
+        find_narratives = manage_docker.find_narratives
+        find_service = manage_docker.find_service
+    narr_names = find_narratives()
+    narr_services = []
+    prespawn_pre = cfg['container_name_prespawn'].format('')
+    narr_pre = cfg['container_name'].format('')
+    for name in narr_names:
+        if name.startswith(prespawn_pre):
+            info = {"state": "queued", "session_id": "*", "instance": name}
+        else:
+            svc = find_service(name)
+            user = name.replace(narr_pre, "", 1)
+            info = {"instance": name, "state": "active", "session_id": user}
+            info["last_seen"] = datetime.now().isoformat()
+            info['session_key'] = svc['launchConfig']['labels']['session_id']
+            info['image'] = svc['launchConfig']['imageUuid']
+            info['publicEndpoints'] = str(svc['publicEndpoints'])
+            match = re.match(r'client-ip:(\S+) timestamp:(\S+)', svc['description'])
+            if match:
+                info['last_ip'] = match.group(1)
+                info['created'] = match.group(2)
+        narr_services.append(info)
+    return(narr_services)
+
+
+@app.route("/narrative_status/", methods=['GET'])
+def narrative_status():
+    """
+    Simple status endpoint to re-assure us that the service is alive. Unauthenticated access just returns
+    a 200 code with the current time in JSON string. If a kbase auth cookie is found, and the username is in the
+    list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
+    active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
+    """
+    global narr_activity
+    logger.info({"message": "Status query recieved"})
+    resp_doc = {"timestamp": datetime.now().isoformat()}
+    request = flask.request
+    auth_status = valid_request(request)
+    logger.debug({"message": "Status query recieved", "auth_status": auth_status})
+    if 'userid' in auth_status:
+        if auth_status['userid'] in cfg['status_users']:
+            resp_doc['narrative_services'] = narrative_services()
+        else:
+            logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
+    return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
 
 
 @app.route("/narrative/" + '<path:narrative>')
