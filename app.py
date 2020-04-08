@@ -531,13 +531,13 @@ def narrative_status():
             resp_doc['reaper_status'] = narr_activity
             if cfg['mode'] == "rancher":
                 find_narratives = manage_rancher.find_narratives
-                find_narrative_labels = manage_rancher.find_narrative_labels
+                find_service = manage_rancher.find_service  # ToDo: This call doesn't exist yet!
             else:
                 find_narratives = manage_docker.find_narratives
-                find_narrative_labels = manage_docker.find_narrative_labels
+                find_service = manage_docker.find_service
             narr_names = find_narratives()
-            narr_labels = find_narrative_labels(narr_names)
-            resp_doc['narrative_labels'] = narr_labels
+            narr_services = {name: find_service(name) for name in narr_names}
+            resp_doc['narrative_services'] = narr_services
         else:
             logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
     return(flask.Response(json.dumps(resp_doc), 200))
