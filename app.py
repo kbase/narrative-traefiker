@@ -234,7 +234,7 @@ def valid_request(request: Dict[str, str]) -> str:
             authresponse = r.json()
             if r.status_code == 200:
                 auth_status['userid'] = authresponse['user']
-                auth_status['customroles'] = authresponse['user']
+                auth_status['customroles'] = authresponse['customroles']
             else:
                 auth_status['error'] = 'auth_error'
                 auth_status['message'] = authresponse['error']['message']
