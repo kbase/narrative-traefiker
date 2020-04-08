@@ -145,6 +145,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     """
     # Crazy long config needed for rancher container startup. Based on observing the traffic from rancher
     # GUI to rancher REST APIs. Might be able to prune it down with some re
+    request = flask.request
     container_config = {u'assignServiceIpAddress': False,
                         u'createIndex': None,
                         u'created': None,
@@ -276,7 +277,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
         logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name, "session_id": session,
-                    "client_ip": "127.0.0.1"})  # request.remote_addr)
+                    "client_ip": request.headers.get("X-Forwarded-For", None)})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
             logger.error(msg)
@@ -370,7 +371,7 @@ def rename_narrative(name1: str, name2: str) -> None:
         return
     put_url = res['links']['self']
     # Object with updated values for the service
-    data = {"name": name2}
+    data = {"name": name2, "metadata": dict()}
     request = flask.request
     # On a rename, the request object should always exist, but just in case
     data['metadata']['X-Forwarded-For'] = request.headers.get('X-Forwarded-For', None)
