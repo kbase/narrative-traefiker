@@ -278,7 +278,8 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
         container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
                                                                              datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
     except Exception:
-        pass
+        logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
+
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
     try:
@@ -287,7 +288,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                     "client_ip": request.headers.get("X-Forwarded-For", None)})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
-            logger.error(msg)
+            logger.error({"message": msg})
             raise(Exception(msg))
     except Exception as ex:
         raise(ex)
