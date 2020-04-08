@@ -540,7 +540,7 @@ def narrative_status():
             resp_doc['narrative_services'] = narr_services
         else:
             logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
-    return(flask.Response(json.dumps(resp_doc), 200))
+    return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
 
 
 @app.route("/narrative/" + '<path:narrative>')
