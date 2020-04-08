@@ -109,8 +109,8 @@ def setup_app(app: flask.Flask) -> None:
         match = re.match(r"^NARRENV_(\w+)", k)
         if match:
             cfg['narrenv'][match.group(1)] = os.environ[k]
-            logger.info({"message": "Setting narrenv from environment",
-                         "key": match.group(1), "value": os.environ[k]})
+            logger.info({"message": "config set",
+                         "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
 
     # Configure logging
     class CustomJsonFormatter(jsonlogger.JsonFormatter):
