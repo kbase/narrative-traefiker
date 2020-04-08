@@ -20,7 +20,7 @@ from types import FrameType
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": u"localhost",                       # hostname used for traefik router rules
-       "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",  # url for authenticating tokens
+       "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
        "image": u"kbase/narrative:latest",             # image name used for spawning narratives
        "es_type": "narrative-traefiker",               # value for type field used in logstash json ingest
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
@@ -48,7 +48,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
-       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}  # users with full narratve_status privs, env var use comma separated usernames
+       "status_role": "KBASE_ADMIN"}                   # auth custom role for full narratve_status privs
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -234,6 +234,7 @@ def valid_request(request: Dict[str, str]) -> str:
             authresponse = r.json()
             if r.status_code == 200:
                 auth_status['userid'] = authresponse['user']
+                auth_status['customroles'] = authresponse['user']
             else:
                 auth_status['error'] = 'auth_error'
                 auth_status['message'] = authresponse['error']['message']
@@ -569,10 +570,11 @@ def narrative_status():
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
     if 'userid' in auth_status:
-        if auth_status['userid'] in cfg['status_users']:
+        if cfg['status_role'] in auth_status['customroles']:
             resp_doc['narrative_services'] = narrative_services()
         else:
-            logger.debug({"message": "User not in status_users", "status_users": cfg['status_users']})
+            logger.debug({"message": "{} roles does not contain {}".format(auth_status['userid'], cfg['status_role']),
+                          "customroles": str(auth_status['customroles'])})
     return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
 
 
