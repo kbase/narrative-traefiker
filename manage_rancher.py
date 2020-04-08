@@ -145,7 +145,6 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     """
     # Crazy long config needed for rancher container startup. Based on observing the traffic from rancher
     # GUI to rancher REST APIs. Might be able to prune it down with some re
-    request = flask.request
     container_config = {u'assignServiceIpAddress': False,
                         u'createIndex': None,
                         u'created': None,
@@ -272,6 +271,13 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
+
+    try:  # Set client ip from request object if available
+        request = flask.request
+        container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
+                                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+    except Exception:
+        pass
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
     try:
