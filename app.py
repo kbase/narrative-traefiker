@@ -457,7 +457,7 @@ def reaper() -> None:
             if narr_last_version is None:
                 narr_last_version = latest_version
                 logger.info({"message": "narr_last_version set", "version": narr_last_version})
-            elif versiontuple(latest_version) > versiontuple(narr_last_version):
+            elif versiontuple(latest_version) != versiontuple(narr_last_version):
                 narr_last_version = latest_version
                 logger.info({"message": "narr_last_version set", "version": narr_last_version})
                 reap_older_prespawn(latest_version)
