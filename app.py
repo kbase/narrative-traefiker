@@ -48,7 +48,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
-       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}  # What users get full status from narrative_status?
+       "status_users": ["sychan", "kkeller", "jsfillman", "scanon", "bsadhkin"]}  # users with full narratve_status privs, env var use comma separated usernames
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -89,14 +89,18 @@ def setup_app(app: flask.Flask) -> None:
 
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
-            logger.info({"message": "Setting config from environment",
-                         "key": cfg_item, "value": os.environ[cfg_item]})
+            logger.info({"message": "Setting config from environment"})
             if isinstance(cfg[cfg_item], int):
                 cfg[cfg_item] = int(os.environ[cfg_item])
             elif isinstance(cfg[cfg_item], float):
                 cfg[cfg_item] = float(os.environ[cfg_item])
+            elif isinstance(cfg[cfg_item], list):
+                cfg[cfg_item] = os.environ[cfg_item].split(',')
             else:
                 cfg[cfg_item] = os.environ[cfg_item]
+            logger.info({"message": "config set",
+                         "key": cfg_item, "value": cfg[cfg_item]})
+
     # To support injecting arbitrary environment variables into the narrative container, we
     # look for any environment variable with the prefix "NARRENV_" and add it into a narrenv
     # dictionary in the the config hash, using the env variable name stripped of "NARRENV_"
