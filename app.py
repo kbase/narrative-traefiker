@@ -534,7 +534,9 @@ def narrative_services() -> List[dict]:
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
             info["last_seen"] = datetime.now().isoformat()
-            info['session_key'] = svc['launchConfig']['labels']['session_id']
+            info['session_key'] = svc['launchConfig']['']['session_id']
+            info['image'] = svc['launchConfig']['imageUuid']
+            info['publicEndpoints'] = str(svc['publicEndpoints'])
             match = re.match(r'client-ip:(\S+) timestamp:(\S+)', svc['description'])
             if match:
                 info['last_ip'] = match.group(1)
