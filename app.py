@@ -255,7 +255,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     session = check_session(userid)
     resp = flask.Response(status=200)
     if session is None:
-        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.remote_addr})
+        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
         resp.set_data(reload_msg(narrative, cfg['reload_secs']))
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
@@ -266,7 +266,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
             if "prespawned" in response:
                 resp.set_data(reload_msg(narrative, 0))
         except Exception as err:
-            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.remote_addr,
+            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None),
                             "exception": repr(err)})
             resp.set_data(container_err_msg(repr(err)))
             resp.status = 500
@@ -276,7 +276,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
         resp.set_data(reload_msg(narrative, 0))
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.remote_addr, "cookie": cookie})
+        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None), "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
@@ -295,7 +295,7 @@ def error_response(auth_status: Dict[str, str], request: flask.request) -> flask
     if auth_status['error'] == 'request_error':
         resp = flask.Response(errors['request_error']+auth_status['message'])
         resp.status_code = 403
-    logger.info({"message": "auth_error", "client_ip": request.remote_addr, "error": auth_status['error'],
+    logger.info({"message": "auth_error", "client_ip": request.headers.get("X-Forwarded-For", None), "error": auth_status['error'],
                 "detail": auth_status.get('message', "")})
     return(resp)
 
