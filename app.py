@@ -184,10 +184,9 @@ def reload_msg(narrative: str, wait: int = 0) -> str:
     msg = """
 <html>
 <head>
-<META HTTP-EQUIV="refresh" CONTENT="{};URL='/narrative/{}'">
+<META HTTP-EQUIV="refresh" CONTENT="{};URL='/load-narrative.html?n={}&check=true'">
 </head>
 <body>
-Starting narrative - will reload shortly
 </body>
 </html>
 """
