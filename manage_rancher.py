@@ -374,8 +374,8 @@ def rename_narrative(name1: str, name2: str) -> None:
     data = {"name": name2}
     request = flask.request
     # On a rename, the request object should always exist, but just in case
-    data['description'] = 'client-ip:{} timestamp:"{}"'.format(request.headers.get('X-Forwarded-For', None),
-                                                               datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+    data['description'] = 'client-ip:{} timestamp:{}'.format(request.headers.get('X-Forwarded-For', None),
+                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
     r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data=data)
     if r.ok:
         return
