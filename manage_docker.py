@@ -42,6 +42,23 @@ def setup(main_cfg: dict, main_logger: logging.Logger) -> None:
     client = docker.DockerClient(base_url=cfg['docker_url'])
 
 
+def find_narratives() -> List[str]:
+    """
+    This query hits the docker api looking for containers that are running cfg['image'], this should
+    be any container running narratives
+    ToDo: Implement actual code
+    """
+    return([])
+
+
+def find_service(service_name: str) -> dict:
+    """
+    Given a service name, return the JSON service object from docker of that name. Throw an exception
+    if (exactly) one isn't found.
+    ToDo: Implement more than the stub
+    """
+    return({})
+
 def verify_config(cfg: dict) -> None:
     """ Quickly test the docker socket, if it fails, rethrow the exception after some explanatory logging """
     try:
