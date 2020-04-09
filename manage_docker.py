@@ -1,7 +1,7 @@
 import docker
 import os
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 # Module wide docker client
