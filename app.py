@@ -17,7 +17,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 from types import FrameType
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -50,7 +50,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
-       "status_role": "KBASE_ADMIN"}                   # auth custom role for full narratve_status privs
+       "status_role": "KBASE_ADMIN",                   # auth custom role for full narratve_status privs
+       "COMMIT_SHA": "not available"}                  # Git commit hash for this build, set via docker build env
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
 # error handling
@@ -567,7 +568,7 @@ def narrative_status():
     """
     global narr_activity
     logger.info({"message": "Status query recieved"})
-    resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION}
+    resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git hash": cfg['COMMIT_SHA']}
     request = flask.request
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
