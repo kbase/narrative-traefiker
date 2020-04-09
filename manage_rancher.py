@@ -135,7 +135,10 @@ def start(session: str, userid: str, prespawn: Optional[bool] = False) -> Dict[s
                 # ToDo: need to write a pool watcher thread that wakes up periodically to make sure the number of prespawned
                 # narratives are still at the desired level. Shouldn't be needed since there should be a 1:1 between assigning
                 # and spawning replacements, but errors happen
+                logger.debug({"message": "could not assign prespawned container, calling start_new", "userid": userid, "session_id": session})
                 return({"session": start_new(session, userid, False)})
+        else:
+            return({"session": start_new(session, userid, False)})
 
 
 def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
