@@ -17,6 +17,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 from types import FrameType
 
+VERSION = "0.0.1"
+
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": u"localhost",                       # hostname used for traefik router rules
@@ -565,7 +567,7 @@ def narrative_status():
     """
     global narr_activity
     logger.info({"message": "Status query recieved"})
-    resp_doc = {"timestamp": datetime.now().isoformat()}
+    resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION}
     request = flask.request
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
