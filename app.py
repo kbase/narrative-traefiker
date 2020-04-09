@@ -17,7 +17,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 from types import FrameType
 
-VERSION = "0.0.1"
+VERSION = "0.9.0"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
