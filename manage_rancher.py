@@ -29,6 +29,7 @@ cfg = {"hostname": u"localhost",
        "rancher_meta": "http://rancher-metadata/",
        "rancher_env_url": None,
        "rancher_stack_id": None,
+       "rancher_stack_name": None,
        "mode": None,
        "narrenv": dict()}
 
@@ -310,7 +311,8 @@ def find_stack() -> Dict[str, str]:
     r = requests.get(cfg['rancher_meta']+"2016-07-29/self/stack/name")
     stack_name = r.text
     logger.info("Found stack name: {}".format(stack_name))
-    cfg['stack_name'] = stack_name
+#   set this in info instead, to set all rancher vars in verify_config
+#    cfg['rancher_stack_name'] = stack_name
     r = requests.get(cfg['rancher_url']+"projects", auth=(cfg['rancher_user'], cfg['rancher_password']))
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
@@ -320,7 +322,7 @@ def find_stack() -> Dict[str, str]:
     resp = r.json()
     x = [stack['id'] for stack in resp['data'] if stack['name'].lower() == stack_name.lower()]
     logger.info("Found stack id: {}".format(x[0]))
-    return({"url": env_endpoint, "stack_id": x[0]})
+    return({"url": env_endpoint, "stack_id": x[0], "stack_name": stack_name})
 
 
 def find_service(traefikname: str) -> dict:
@@ -328,7 +330,7 @@ def find_service(traefikname: str) -> dict:
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
     if (exactly) one isn't found.
     """
-    stack_suffix = "_{}".format(cfg['stack_name'])
+    stack_suffix = "_{}".format(cfg['rancher_stack_name'])
     name = traefikname.replace(stack_suffix, "")  # Remove trailing _traefik suffix that traefik adds
     url = "{}/service?name={}".format(cfg['rancher_env_url'], name)
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
@@ -461,11 +463,12 @@ def verify_config(cfg2: dict) -> None:
     except Exception as ex:
         logger.critical("Error trying to connect to {}: {}".format(cfg['rancher_url'], str(ex)))
         raise(ex)
-    if (cfg['rancher_stack_id'] is None or cfg['rancher_env_url'] is None):
-        logger.info("rancher_stack_id or rancher_env_url not set - introspecting rancher-metadata service")
+    if (cfg['rancher_stack_id'] is None or cfg['rancher_env_url'] is None or cfg['rancher_stack_name'] is None):
+        logger.info("rancher_stack_id, rancher_stack_name, or rancher_env_url not set - introspecting rancher-metadata service")
         try:
             info = find_stack()
             cfg['rancher_stack_id'] = info['stack_id']
+            cfg['rancher_stack_name'] = info['stack_name']
             cfg['rancher_env_url'] = info['url']
             if cfg['rancher_stack_id'] is None or cfg['rancher_env_url'] is None:
                 logger.critical("Failed to determine rancher_stack_id and/or rancher_env_url from metadata service")
