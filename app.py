@@ -569,7 +569,7 @@ def narrative_status():
     """
     global narr_activity
     logger.info({"message": "Status query recieved"})
-    resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git hash": cfg['COMMIT_SHA']}
+    resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
     auth_status = valid_request(request)
     logger.debug({"message": "Status query recieved", "auth_status": auth_status})
