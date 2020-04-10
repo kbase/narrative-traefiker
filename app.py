@@ -44,6 +44,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_meta": "http://rancher-metadata/",     # URL for the rancher-metadata service (unauthenticated)
        "rancher_env_url": None,                        # rancher enviroment URL (under rancher_url) - self-configured if not set
        "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
+       "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
        "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
        "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
