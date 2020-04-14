@@ -31,7 +31,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "container_name_prespawn": u"narrativepre-{}",  # python string template for pre-spawned narratives, userid in param
        "narrative_version_url": "https://ci.kbase.us/narrative_version",  # url to narrative_version endpoint
        "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
-       "container_prefix": "narrative",                # string used to match names of services/containers for reaping
        "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
        "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
        "reload_secs": 10,                              # how many seconds the client should wait before reloading when no prespawned available
@@ -203,6 +202,15 @@ def setup_app(app: flask.Flask) -> None:
     # set for a number higher than 0, prespawn that number of narratives
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
+    # Prepopulate the narr_activity dictionary with current narratives found
+    global narr_activity
+    narrs = find_narratives()
+    logger.debug({"message": "Found existing narrative containers at startup", "names": str(narrs)})
+    prefix = cfg['container_name'].format('')
+    narr_time = { narr: time.time() for narr in narrs if narr.startswith(prefix) }
+    logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
+    narr_activity.update(narr_time)
+    
 
 
 def get_prespawned() -> List[str]:
@@ -360,11 +368,12 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
                 logger.debug({"message": "websocket line: {}".format(line)})
                 matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
                 containers[matches.group(1)] = int(matches.group(2))
-            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img'])})
+            prefix = cfg['container_name'].format('')
+            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
             for name in containers.keys():
-                logger.debug({"message": "Examing container: {}".format(name)})
+                logger.debug({"message": "Examining container: {}".format(name)})
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
-                if name.startswith(cfg['container_prefix']):
+                if name.startswith(prefix):
                     logger.debug({"message": "Matches prefix"})
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
@@ -378,7 +387,7 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
                     else:
                         logger.debug({"message": "Skipping because {} not in {}".format(cfg['narr_img'], image_name)})
                 else:
-                    logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix'])})
+                    logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, prefix)})
             return(narr_activity)
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
