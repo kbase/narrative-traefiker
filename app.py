@@ -457,7 +457,7 @@ def reaper() -> None:
     try:
         zombies = find_stopped_services().keys()
         logger.debug({"message": "find_stopped_services() called", "num returned": len(zombies)})
-        reap_list.update(zombies)
+        reap_list.extend(zombies)
     except Exception as ex:
         logger.critical({"message": "Exception calling find_stopped_services", "Exception": repr(ex)})
 
