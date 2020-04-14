@@ -453,14 +453,6 @@ def reaper() -> None:
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
 
-    # Look for any containers that may have died on startup and reap them as well
-    try:
-        zombies = find_stopped_services().keys()
-        logger.debug({"message": "find_stopped_services() called", "num returned": len(zombies)})
-        reap_list.extend(zombies)
-    except Exception as ex:
-        logger.critical({"message": "Exception calling find_stopped_services", "Exception": repr(ex)})
-
     for name in reap_list:
         msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['reaper_timeout_secs'])
         logger.info({"message": msg})
@@ -469,6 +461,18 @@ def reaper() -> None:
             del narr_activity[name]
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+
+    # Look for any containers that may have died on startup and reap them as well
+    try:
+        zombies = find_stopped_services().keys()
+        logger.debug({"message": "find_stopped_services() called", "num returned": len(zombies)})
+        for name in zombies:
+            msg = "Container {} identified as zombie container. Reaping.".format(name)
+            logger.info({"message": msg})
+            reap_narrative(name)
+    except Exception as ex:
+        logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
+
     # Try the narrative_version endpoint to see if we need to update the prespawned
     # narratives
     latest_version = None
