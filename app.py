@@ -155,6 +155,7 @@ def setup_app(app: flask.Flask) -> None:
     # Verify that either docker or rancher configs are viable before continuing. It is a fatal error if the
     # configs aren't good, so bail out entirely and don't start the app. Set the global method pointers to
     # point at the right method - this will go away once the class based rewrite happens
+    global check_session
     global start
     global find_image
     global find_service
