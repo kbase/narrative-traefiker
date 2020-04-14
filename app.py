@@ -84,7 +84,7 @@ find_narratives = None
 find_narrative_labels = None
 reap_narrative = None
 naming_regex = None
-
+find_stopped_services = None
 
 def narr_status(signalNumber: int, frame: FrameType) -> None:
     print("Current time: {}".format(time.asctime()))
@@ -163,6 +163,7 @@ def setup_app(app: flask.Flask) -> None:
     global find_narrative_labels
     global reap_narrative
     global naming_regex
+    global find_stopped_services
 
     try:
         if (cfg["rancher_url"] is not None):
@@ -177,6 +178,7 @@ def setup_app(app: flask.Flask) -> None:
             find_narrative_labels = manage_rancher.find_narrative_labels
             reap_narrative = manage_rancher.reap_narrative
             naming_regex = "^{}_"
+            find_stopped_services = manage_rancher.find_stopped_services
         else:
             cfg['mode'] = "docker"
             manage_docker.setup(cfg, logger)
@@ -450,6 +452,14 @@ def reaper() -> None:
         return
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
+
+    # Look for any containers that may have died on startup and reap them as well
+    try:
+        zombies = find_stopped_services().keys()
+        logger.debug({"message": "find_stopped_services() called", "num returned": len(zombies)})
+        reap_list.update(zombies)
+    except Exception as ex:
+        logger.critical({"message": "Exception calling find_stopped_services", "Exception": repr(ex)})
 
     for name in reap_list:
         msg = "Container {} has been inactive longer than {}. Reaping.".format(name, cfg['reaper_timeout_secs'])

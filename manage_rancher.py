@@ -347,7 +347,7 @@ def find_service(traefikname: str) -> dict:
         raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
 
 
-def find_stopped_service() -> dict:
+def find_stopped_services() -> dict:
     """
     Query rancher for services with the state "healthState=started-once" and return the names of matching services
     Result can be an empty dictionary
