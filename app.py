@@ -173,7 +173,7 @@ def setup_app(app: flask.Flask) -> None:
             find_image = manage_rancher.find_image
             find_service = manage_rancher.find_service
             find_narratives = manage_rancher.find_narratives
-            find_narrative_labels = manage_rancher.narrative_labels
+            find_narrative_labels = manage_rancher.find_narrative_labels
             reap_narrative = manage_rancher.reap_narrative
             naming_regex = "^{}_"
         else:
@@ -184,7 +184,7 @@ def setup_app(app: flask.Flask) -> None:
             find_image = manage_docker.find_image
             find_service = manage_docker.find_service
             find_narratives = manage_docker.find_narratives
-            find_narrative_labels = manage_docker.narrative_labels
+            find_narrative_labels = manage_docker.find_narrative_labels
             reap_narrative = manage_docker.reap_narrative
             naming_regex = "^{}$"
     except Exception as ex:
