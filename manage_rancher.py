@@ -347,6 +347,22 @@ def find_service(traefikname: str) -> dict:
         raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
 
 
+def find_stopped_service() -> dict:
+    """
+    Query rancher for services with the state "healthState=started-once" and return the names of matching services
+    Result can be an empty dictionary
+    """
+    stack_suffix = "_{}".format(cfg['rancher_stack_name'])
+    url = "{}/healthState=started-once".format(cfg['rancher_env_url'])
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    if r.ok:
+        results = r.json()
+        names = { svc['name']: svc for svc in results['data'] }
+        return( names)
+    else:
+        raise(Exception("Error querying for stopped services: Response code {}: {}".format(r.status_code, r.body)))
+
+
 def find_image(name: str) -> str:
     """
     Given a service name, return the docker image that the service is running. If the service doesn't exist
