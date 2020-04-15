@@ -84,11 +84,7 @@ find_narrative_labels = None
 reap_narrative = None
 naming_regex = None
 find_stopped_services = None
-
-def narr_status(signalNumber: int, frame: FrameType) -> None:
-    print("Current time: {}".format(time.asctime()))
-    for container in narr_activity.keys():
-        print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
+stack_suffix = None
 
 
 def setup_app(app: flask.Flask) -> None:
@@ -163,6 +159,7 @@ def setup_app(app: flask.Flask) -> None:
     global reap_narrative
     global naming_regex
     global find_stopped_services
+    global stack_suffix
 
     try:
         if (cfg["rancher_url"] is not None):
@@ -178,6 +175,7 @@ def setup_app(app: flask.Flask) -> None:
             reap_narrative = manage_rancher.reap_narrative
             naming_regex = "^{}_"
             find_stopped_services = manage_rancher.find_stopped_services
+            stack_suffix = manage_rancher.stack_suffix
         else:
             cfg['mode'] = "docker"
             manage_docker.setup(cfg, logger)
@@ -197,7 +195,6 @@ def setup_app(app: flask.Flask) -> None:
                  "reaper_sleep_secs": cfg['reaper_sleep_secs']})
     scheduler.start()
     scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
-    signal.signal(signal.SIGUSR1, narr_status)
     # the pre-spawning feature is only supported on rancher, if we prespawn is
     # set for a number higher than 0, prespawn that number of narratives
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
@@ -207,7 +204,11 @@ def setup_app(app: flask.Flask) -> None:
     narrs = find_narratives()
     logger.debug({"message": "Found existing narrative containers at startup", "names": str(narrs)})
     prefix = cfg['container_name'].format('')
-    narr_time = { narr: time.time() for narr in narrs if narr.startswith(prefix) }
+    if stack_suffix is not None:
+        suffix = stack_suffix()
+    else:
+        suffix = ""
+    narr_time = { narr+suffix: time.time() for narr in narrs if narr.startswith(prefix) }
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
     
@@ -452,7 +453,7 @@ def reaper() -> None:
     """
     global narr_last_version
     global narr_activity
-    logger.info({"message": "Reaper process running"})
+    logger.info({"message": "Reaper process running", "narr_activity keys": str(list(narr_activity.keys()))})
     try:
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
@@ -562,7 +563,6 @@ def narrative_services() -> List[dict]:
             svc = find_service(name)
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
-            info["last_seen"] = datetime.now().isoformat()
             info['session_key'] = svc['launchConfig']['labels']['session_id']
             info['image'] = svc['launchConfig']['imageUuid']
             info['publicEndpoints'] = str(svc['publicEndpoints'])
