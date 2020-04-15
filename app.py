@@ -29,7 +29,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
        "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
        "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
-       "log_level": logging.DEBUG,                     # loglevel
+       "log_level": logging.DEBUG,                     # loglevel - DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
        "log_dest": None,                               # log destination - currently unused
        "log_name": u"traefiker",                       # python logger name
        "rancher_user": None,                           # username for rancher creds

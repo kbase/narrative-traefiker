@@ -106,7 +106,7 @@ def check_session(userid: str) -> str:
         session_id = None
     except docker.errors.APIErrors as err:
         msg = "Docker APIError thrown while searching for container name {} : {}".format(name, str(err))
-        logger.error({"message": msg, "name": name, "exception": str(err)})
+        logger.error({"message": msg, "container_name": name, "exception": str(err)})
         session_id = None
     return(session_id)
 
@@ -131,7 +131,7 @@ def start(session: str, userid: str) -> Dict[str, str]:
         name = cfg['container_name'].format(userid)
         container = client.containers.run(cfg['image'], detach=True, labels=labels, hostname=name,
                                           auto_remove=True, name=name, network=cfg["dock_net"])
-        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name,
+        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "container_name": name,
                     "session_id": session})
     except docker.errors.APIError as err:
         # If there is a race condition because a container has already started, then this should catch it.
@@ -140,7 +140,7 @@ def start(session: str, userid: str) -> Dict[str, str]:
         if session is None:
             raise(err)
         else:
-            logger.info({"message": "previous_session", "userid": userid, "name": name, "session_id": session})
+            logger.info({"message": "previous_session", "userid": userid, "container_name": name, "session_id": session})
             container = client.get_container(name)
     if container.status != u"created":
         raise(Exception("Error starting container: container status {}".format(container.status)))
