@@ -85,15 +85,23 @@ find_stopped_services = None
 stack_suffix = None
 
 
-def setup_app(app: flask.Flask) -> None:
-    global errors
-    errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
-              'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
-              'request_error': "Error querying {}: ".format(cfg['auth2'])}
+class CustomJsonFormatter(jsonlogger.JsonFormatter):
+    def add_fields(self, log_record, record, message_dict):
+        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+        if not log_record.get('timestamp'):
+            # this doesn't use record.created, so it is slightly off
+            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            log_record['timestamp'] = now
+        if log_record.get('level'):
+            log_record['level'] = log_record['level'].upper()
+        else:
+            log_record['level'] = record.levelname
+        log_record['container'] = os.environ['HOSTNAME']
+        log_record['type'] = cfg['es_type']
+ 
 
-    # Seed the random number generator based on default (time)
-    random.seed()
-
+def merge_env_cfg() -> None:
+    """ Go through the environment variables and and merge them into the global configuration. """
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
             logger.info({"message": "Setting config from environment"})
@@ -119,21 +127,19 @@ def setup_app(app: flask.Flask) -> None:
             logger.info({"message": "config set",
                          "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
 
-    # Configure logging
-    class CustomJsonFormatter(jsonlogger.JsonFormatter):
-        def add_fields(self, log_record, record, message_dict):
-            super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
-            if not log_record.get('timestamp'):
-                # this doesn't use record.created, so it is slightly off
-                now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-                log_record['timestamp'] = now
-            if log_record.get('level'):
-                log_record['level'] = log_record['level'].upper()
-            else:
-                log_record['level'] = record.levelname
-            log_record['container'] = os.environ['HOSTNAME']
-            log_record['type'] = cfg['es_type']
 
+def setup_app(app: flask.Flask) -> None:
+    global errors
+    errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
+              'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
+              'request_error': "Error querying {}: ".format(cfg['auth2'])}
+
+    # Seed the random number generator based on default (time)
+    random.seed()
+ 
+    merge_env_cfg()
+
+    # Configure logging
     logging.basicConfig(stream=sys.stdout, level=int(cfg['log_level']))
     logHandler = logging.StreamHandler()
     formatter = CustomJsonFormatter('(timestamp) (level) (name) (message) (container) (type)')
