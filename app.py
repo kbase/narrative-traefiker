@@ -7,7 +7,6 @@ import logging
 from pythonjsonlogger import jsonlogger
 import sys
 import time
-import signal
 import re
 from datetime import datetime
 import json
@@ -15,23 +14,20 @@ import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
-from types import FrameType
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": u"localhost",                       # hostname used for traefik router rules
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
        "image": u"kbase/narrative:latest",             # image name used for spawning narratives
-       "es_type": "narrative-traefiker",               # value for type field used in logstash json ingest
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
        "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
        "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
        "container_name_prespawn": u"narrativepre-{}",  # python string template for pre-spawned narratives, userid in param
        "narrative_version_url": "https://ci.kbase.us/narrative_version",  # url to narrative_version endpoint
        "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
-       "container_prefix": "narrative",                # string used to match names of services/containers for reaping
        "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
        "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
        "reload_secs": 10,                              # how many seconds the client should wait before reloading when no prespawned available
@@ -75,22 +71,23 @@ narr_last_version = None
 # Dictionary with information about narratives currently running
 narr_services: Dict[str, time.time] = dict()
 
+# Consolidate method references to these globals until the class based rewrite is done
+check_session = None
+start = None
+find_image = None
+find_service = None
+find_narratives = None
+find_narrative_labels = None
+reap_narrative = None
+naming_regex = None
+find_stopped_services = None
+stack_suffix = None
+ 
 
-def narr_status(signalNumber: int, frame: FrameType) -> None:
-    print("Current time: {}".format(time.asctime()))
-    for container in narr_activity.keys():
-        print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
-
-
-def setup_app(app: flask.Flask) -> None:
-    global errors
-    errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
-              'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
-              'request_error': "Error querying {}: ".format(cfg['auth2'])}
-
-    # Seed the random number generator based on default (time)
-    random.seed()
-
+def merge_env_cfg() -> None:
+    """
+    Go through the environment variables and and merge them into the global configuration.
+    """
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
             logger.info({"message": "Setting config from environment"})
@@ -116,26 +113,20 @@ def setup_app(app: flask.Flask) -> None:
             logger.info({"message": "config set",
                          "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
 
-    # Configure logging
-    class CustomJsonFormatter(jsonlogger.JsonFormatter):
-        def add_fields(self, log_record, record, message_dict):
-            super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
-            if not log_record.get('timestamp'):
-                # this doesn't use record.created, so it is slightly off
-                now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-                log_record['timestamp'] = now
-            if log_record.get('level'):
-                log_record['level'] = log_record['level'].upper()
-            else:
-                log_record['level'] = record.levelname
-            log_record['container'] = os.environ['HOSTNAME']
-            log_record['type'] = cfg['es_type']
 
+def setup_app(app: flask.Flask) -> None:
+    global errors
+    errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
+              'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
+              'request_error': "Error querying {}: ".format(cfg['auth2'])}
+
+    # Seed the random number generator based on default (time)
+    random.seed()
+
+    merge_env_cfg()
+
+    # Configure logging
     logging.basicConfig(stream=sys.stdout, level=int(cfg['log_level']))
-    logHandler = logging.StreamHandler()
-    formatter = CustomJsonFormatter('(timestamp) (level) (name) (message) (container) (type)')
-    logHandler.setFormatter(formatter)
-    logger.addHandler(logHandler)
 
     # Remove the default flask logger in favor of the one we just configured
     logger.removeHandler(flask.logging.default_handler)
@@ -143,16 +134,45 @@ def setup_app(app: flask.Flask) -> None:
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
     # Verify that either docker or rancher configs are viable before continuing. It is a fatal error if the
-    # configs aren't good, so bail out entirely and don't start the app
+    # configs aren't good, so bail out entirely and don't start the app. Set the global method pointers to
+    # point at the right method - this will go away once the class based rewrite happens
+    global check_session
+    global start
+    global find_image
+    global find_service
+    global find_narratives
+    global find_narrative_labels
+    global reap_narrative
+    global naming_regex
+    global find_stopped_services
+    global stack_suffix
+
     try:
         if (cfg["rancher_url"] is not None):
             cfg['mode'] = "rancher"
             manage_rancher.setup(cfg, logger)
             manage_rancher.verify_config(cfg)
+            check_session = manage_rancher.check_session
+            start = manage_rancher.start
+            find_image = manage_rancher.find_image
+            find_service = manage_rancher.find_service
+            find_narratives = manage_rancher.find_narratives
+            find_narrative_labels = manage_rancher.find_narrative_labels
+            reap_narrative = manage_rancher.reap_narrative
+            naming_regex = "^{}_"
+            find_stopped_services = manage_rancher.find_stopped_services
+            stack_suffix = manage_rancher.stack_suffix
         else:
             cfg['mode'] = "docker"
             manage_docker.setup(cfg, logger)
             manage_docker.verify_config(cfg)
+            start = manage_docker.start
+            find_image = manage_docker.find_image
+            find_service = manage_docker.find_service
+            find_narratives = manage_docker.find_narratives
+            find_narrative_labels = manage_docker.find_narrative_labels
+            reap_narrative = manage_docker.reap_narrative
+            naming_regex = "^{}$"
     except Exception as ex:
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
@@ -161,15 +181,29 @@ def setup_app(app: flask.Flask) -> None:
                  "reaper_sleep_secs": cfg['reaper_sleep_secs']})
     scheduler.start()
     scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
-    signal.signal(signal.SIGUSR1, narr_status)
     # the pre-spawning feature is only supported on rancher, if we prespawn is
     # set for a number higher than 0, prespawn that number of narratives
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
+    # Prepopulate the narr_activity dictionary with current narratives found
+    global narr_activity
+    narrs = find_narratives()
+    logger.debug({"message": "Found existing narrative containers at startup", "names": str(narrs)})
+    prefix = cfg['container_name'].format('')
+    if stack_suffix is not None:
+        suffix = stack_suffix()
+    else:
+        suffix = ""
+    narr_time = { narr+suffix: time.time() for narr in narrs if narr.startswith(prefix) }
+    logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
+    narr_activity.update(narr_time)
+
 
 
 def get_prespawned() -> List[str]:
-    """ returns a list of the prespawned narratives waiting to be assigned """
+    """
+    Returns a list of the prespawned narratives waiting to be assigned
+    """
     if cfg["mode"] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
     narratives = manage_rancher.find_narratives()
@@ -178,7 +212,9 @@ def get_prespawned() -> List[str]:
 
 
 def prespawn_narrative(num: int) -> None:
-    """ Prespawn num narratives that incoming users can be assigned to immediately """
+    """
+    Prespawn num narratives that incoming users can be assigned to immediately
+    """
     logger.info({"message": "prespawning containers", "number": num})
     if cfg['mode'] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
@@ -256,15 +292,6 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     object that contains the necessary cookie for traefik to use for routing, as well as a brief
     message that reloads the page so that traefik reroutes to the right place
     """
-    # Set the check_session() and start() methods to point to the versions appropriate for
-    # the mode we're in
-    if cfg['mode'] == "rancher":
-        check_session = manage_rancher.check_session
-        start = manage_rancher.start
-    else:
-        check_session = manage_docker.check_session
-        start = manage_docker.start
-
     # See if there is an existing session for this user, if so, reuse it
     session = check_session(userid)
     resp = flask.Response(status=200)
@@ -319,12 +346,6 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
     a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
     """
-    if cfg['mode'] == 'docker':
-        find_image = manage_docker.find_image
-    elif cfg['mode'] == 'rancher':
-        find_image = manage_rancher.find_image
-    else:
-        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
     try:
         r = requests.get(cfg['traefik_metrics'])
         if r.status_code == 200:
@@ -338,11 +359,12 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
                 logger.debug({"message": "websocket line: {}".format(line)})
                 matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
                 containers[matches.group(1)] = int(matches.group(2))
-            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(cfg['container_prefix'], cfg['narr_img'])})
+            prefix = cfg['container_name'].format('')
+            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
             for name in containers.keys():
-                logger.debug({"message": "Examing container: {}".format(name)})
+                logger.debug({"message": "Examining container: {}".format(name)})
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
-                if name.startswith(cfg['container_prefix']):
+                if name.startswith(prefix):
                     logger.debug({"message": "Matches prefix"})
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
@@ -356,12 +378,12 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
                     else:
                         logger.debug({"message": "Skipping because {} not in {}".format(cfg['narr_img'], image_name)})
                 else:
-                    logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, cfg['container_prefix'])})
+                    logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, prefix)})
             return(narr_activity)
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
     except Exception as e:
-        exc_type, exc_obj, tb = sys.exc_info()
+        _, _, tb = sys.exc_info()
         f = tb.tb_frame
         lineno = tb.tb_lineno
         filename = f.f_code.co_filename
@@ -400,14 +422,6 @@ def reap_older_prespawn(version: str) -> None:
     """
     try:
         logger.info({"message": "Reaping narratives older than {}".format(version)})
-        if cfg['mode'] == "rancher":
-            find_narratives = manage_rancher.find_narratives
-            find_narrative_labels = manage_rancher.find_narrative_labels
-            reap_narrative = manage_rancher.reap_narrative
-        else:
-            find_narratives = manage_docker.find_narratives
-            find_narrative_labels = manage_docker.find_narrative_labels
-            reap_narrative = manage_docker.reap_narrative
         narr_names = find_narratives()
         narr_labels = find_narrative_labels(narr_names)
         ver = versiontuple(version)
@@ -429,13 +443,7 @@ def reaper() -> None:
     """
     global narr_last_version
     global narr_activity
-    logger.info({"message": "Reaper process running"})
-    if cfg['mode'] == 'docker':
-        reap_narrative = manage_docker.reap_narrative
-    elif cfg['mode'] == 'rancher':
-        reap_narrative = manage_rancher.reap_narrative
-    else:
-        raise RuntimeError('Unknown orchestration mode: {}'.format(cfg['mode']))
+    logger.info({"message": "Reaper process running", "narr_activity keys": str(list(narr_activity.keys()))})
     try:
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
@@ -453,6 +461,18 @@ def reaper() -> None:
             del narr_activity[name]
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+
+    # Look for any containers that may have died on startup and reap them as well
+    try:
+        zombies = find_stopped_services().keys()
+        logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
+        for name in zombies:
+            msg = "Container {} identified as zombie container. Reaping.".format(name)
+            logger.info({"message": msg})
+            reap_narrative(name)
+    except Exception as ex:
+        logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
+
     # Try the narrative_version endpoint to see if we need to update the prespawned
     # narratives
     latest_version = None
@@ -492,14 +512,6 @@ def narrative_shutdown(username=None):
     logger.info({"message": "narrative_shutdown called", "auth_status": str(auth_status)})
     if 'userid' in auth_status:
         userid = auth_status['userid']
-        if cfg['mode'] == "rancher":
-            check_session = manage_rancher.check_session
-            reap_narrative = manage_rancher.reap_narrative
-            naming_regex = "^{}_"
-        else:
-            check_session = manage_docker.check_session
-            reap_narrative = manage_docker.reap_narrative
-            naming_regex = "^{}$"
         session_id = check_session(userid)
         logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
 
@@ -530,12 +542,6 @@ def narrative_services() -> List[dict]:
     """
     Queries the rancher APIs to build a list of narrative container descriptors
     """
-    if cfg['mode'] == "rancher":
-        find_narratives = manage_rancher.find_narratives
-        find_service = manage_rancher.find_service  # ToDo: This call doesn't exist yet!
-    else:
-        find_narratives = manage_docker.find_narratives
-        find_service = manage_docker.find_service
     narr_names = find_narratives()
     narr_services = []
     prespawn_pre = cfg['container_name_prespawn'].format('')
@@ -547,7 +553,6 @@ def narrative_services() -> List[dict]:
             svc = find_service(name)
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
-            info["last_seen"] = datetime.now().isoformat()
             info['session_key'] = svc['launchConfig']['labels']['session_id']
             info['image'] = svc['launchConfig']['imageUuid']
             info['publicEndpoints'] = str(svc['publicEndpoints'])

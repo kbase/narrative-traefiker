@@ -259,8 +259,15 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'vip': None}
     if prespawn is False:
         name = cfg['container_name'].format(userid)
+        client_ip = flask.request.headers['X-Forwarded-For']
+        try:  # Set client ip from request object if available
+            container_config['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
+                                                                                 datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+        except Exception:
+            logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
     else:
         name = cfg['container_name_prespawn'].format(userid)
+        client_ip = None
     cookie = u'{}'.format(session)
     labels = dict()
     labels["io.rancher.container.pull_image"] = u"always"
@@ -277,19 +284,13 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
 
-    try:  # Set client ip from request object if available
-        request = flask.request
-        container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
-                                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
-    except Exception:
-        logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
 
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
         logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name, "session_id": session,
-                    "client_ip": request.headers.get("X-Forwarded-For", None)})  # request.remote_addr)
+                    "client_ip": client_ip})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
             logger.error({"message": msg})
@@ -325,13 +326,20 @@ def find_stack() -> Dict[str, str]:
     return({"url": env_endpoint, "stack_id": x[0], "stack_name": stack_name})
 
 
+def stack_suffix() -> str:
+    """
+    Returns the stack suffix that traefik appends to service names.
+    """
+    return("_{}".format(cfg['rancher_stack_name']))
+
+
 def find_service(traefikname: str) -> dict:
     """
     Given a service name, return the JSON service object from Rancher of that name. Throw an exception
     if (exactly) one isn't found.
     """
-    stack_suffix = "_{}".format(cfg['rancher_stack_name'])
-    name = traefikname.replace(stack_suffix, "")  # Remove trailing _traefik suffix that traefik adds
+    suffix = stack_suffix()
+    name = traefikname.replace(suffix, "")  # Remove trailing _traefik suffix that traefik adds
     url = "{}/service?name={}".format(cfg['rancher_env_url'], name)
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
@@ -345,6 +353,21 @@ def find_service(traefikname: str) -> dict:
             raise(Exception("Error querying for {}: expected exactly 1 result, got {}".format(name, len(results['data']))))
     else:
         raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
+
+
+def find_stopped_services() -> dict:
+    """
+    Query rancher for services with the state "healthState=started-once" and return the names of matching services
+    Result can be an empty dictionary
+    """
+    url = "{}/service?healthState=started-once".format(cfg['rancher_env_url'])
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    if r.ok:
+        results = r.json()
+        names = { svc['name']: svc for svc in results['data'] }
+        return( names)
+    else:
+        raise(Exception("Error querying for stopped services: Response code {}".format(r.status_code)))
 
 
 def find_image(name: str) -> str:
