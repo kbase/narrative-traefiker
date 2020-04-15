@@ -4,7 +4,6 @@ from urllib.parse import quote_plus
 import os
 import random
 import logging
-from pythonjsonlogger import jsonlogger
 import sys
 import time
 import re
