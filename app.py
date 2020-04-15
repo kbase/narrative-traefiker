@@ -15,7 +15,7 @@ import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -30,7 +30,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
        "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
        "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
-       "reload_secs": 10,                              # how many seconds the client should wait before reloading when no prespawned available
        "log_level": logging.DEBUG,                     # loglevel
        "log_dest": None,                               # log destination - currently unused
        "log_name": u"traefiker",                       # python logger name
@@ -118,7 +117,8 @@ def setup_app(app: flask.Flask) -> None:
     global errors
     errors = {'no_cookie': "No {} cookie in request".format(cfg['kbase_cookie']),
               'auth_error': "Session cookie failed validation at {}: ".format(cfg['auth2']),
-              'request_error': "Error querying {}: ".format(cfg['auth2'])}
+              'request_error': "Error querying {}: ".format(cfg['auth2']),
+              'other': "Unexpected error: "}
 
     # Seed the random number generator based on default (time)
     random.seed()
@@ -232,31 +232,35 @@ def prespawn_narrative(num: int) -> None:
                                 "container": "{} of {}".format(a, num), "exception": repr(err)})
 
 
-def reload_msg(narrative: str, wait: int = 0) -> str:
-    msg = """
-<html>
-<head>
-<META HTTP-EQUIV="refresh" CONTENT="{};URL='/load-narrative.html?n={}&check=true'">
-</head>
-<body>
-</body>
-</html>
-"""
-    return msg.format(wait, narrative)
+def reload_msg(narrative: str ) -> flask.Response:
+    """
+    Return a response object that redirects ultimately to the running narrative container,
+    by way of the load-narrative page
+    """
+    resp = flask.redirect("/load-narrative.html?n={}&check=true".format(narrative), code=302)
+    return(resp)
 
 
-def container_err_msg(message: str) -> str:
-    msg = """
-<html>
-<head>
-</head>
-<body>
-There was an error starting your narrative: {}
-please contact KBase support staff.
-</body>
-</html>
-"""
-    return msg.format(message)
+def error_response(auth_status: Dict[str, str], request: flask.request) -> flask.Response:
+    """
+    Return an flask response that is appropriate for the message in the auth_status dict.
+    """
+    resp = flask.Response(errors[auth_status["error"]])
+    if auth_status['error'] == 'no_cookie':
+        resp = flask.Response(errors['no_cookie'])
+        resp.status_code = 401
+    elif auth_status['error'] == 'auth_error':
+        resp = flask.Response(errors['auth_error']+auth_status['message'])
+        resp.status_code = 403
+    elif auth_status['error'] == 'request_error':
+        resp = flask.Response(errors['request_error']+auth_status['message'])
+        resp.status_code = 403
+    else:
+        resp = flask.Response(errors['other']+auth_status['message'])
+        resp.status_code = 400
+    logger.info({"message": "auth_error", "client_ip": request.headers.get("X-Forwarded-For", None), "error": auth_status['error'],
+                "detail": auth_status.get('message', "")})
+    return(resp)
 
 
 def valid_request(request: Dict[str, str]) -> str:
@@ -294,10 +298,9 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     """
     # See if there is an existing session for this user, if so, reuse it
     session = check_session(userid)
-    resp = flask.Response(status=200)
     if session is None:
         logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
-        resp.set_data(reload_msg(narrative, cfg['reload_secs']))
+        resp = reload_msg(narrative)
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
             # Try to get a narrative session, the session value returned is the one that has been assigned to the
@@ -305,39 +308,19 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
             response = start(session, userid)
             session = response['session']
             if "prespawned" in response:
-                resp.set_data(reload_msg(narrative, 0))
+                resp = reload_msg(narrative)
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None),
                             "exception": repr(err)})
-            resp.set_data(container_err_msg(repr(err)))
-            resp.status = 500
+            resp = error_response({"error": "other", "message": repr(err)})
             session = None
     else:
         # Session already exists, don't pause before reloading
-        resp.set_data(reload_msg(narrative, 0))
+        resp = reload_msg(narrative)
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
         logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None), "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
-    return(resp)
-
-
-def error_response(auth_status: Dict[str, str], request: flask.request) -> flask.Response:
-    """
-    Return an flask response that is appropriate for the message in the auth_status dict.
-    """
-    resp = flask.Response(errors[auth_status["error"]])
-    if auth_status['error'] == 'no_cookie':
-        resp = flask.Response(errors['no_cookie'])
-        resp.status_code = 401
-    if auth_status['error'] == 'auth_error':
-        resp = flask.Response(errors['auth_error']+auth_status['message'])
-        resp.status_code = 403
-    if auth_status['error'] == 'request_error':
-        resp = flask.Response(errors['request_error']+auth_status['message'])
-        resp.status_code = 403
-    logger.info({"message": "auth_error", "client_ip": request.headers.get("X-Forwarded-For", None), "error": auth_status['error'],
-                "detail": auth_status.get('message', "")})
     return(resp)
 
 
