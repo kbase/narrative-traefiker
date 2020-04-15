@@ -257,8 +257,14 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'type': u'service',
                         u'uuid': None,
                         u'vip': None}
+    request = flask.request
     if prespawn is False:
         name = cfg['container_name'].format(userid)
+        try:  # Set client ip from request object if available
+            container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
+                                                                                 datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+        except Exception:
+            logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
     else:
         name = cfg['container_name_prespawn'].format(userid)
     cookie = u'{}'.format(session)
@@ -277,12 +283,6 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
 
-    try:  # Set client ip from request object if available
-        request = flask.request
-        container_config['description'] = 'client-ip:{} timestamp:{}'.format(request.headers['X-Forwarded-For'],
-                                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
-    except Exception:
-        logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
 
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
