@@ -20,10 +20,9 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       us.kbase.vcs-branch=$BRANCH  \
       maintainer="Steve Chan sychan@lbl.gov"
 
-COPY app.py /app/app.py
 WORKDIR /app
 
-USER root
+USER nobody
 ENV COMMIT_SHA=${COMMIT}
 
 ENTRYPOINT [ "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--log-config", "logging.conf", "-c", "config.py", "app:app" ]
