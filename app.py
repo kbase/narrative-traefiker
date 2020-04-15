@@ -7,7 +7,6 @@ import logging
 from pythonjsonlogger import jsonlogger
 import sys
 import time
-import signal
 import re
 from datetime import datetime
 import json
@@ -15,7 +14,6 @@ import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
-from types import FrameType
 
 VERSION = "0.9.2"
 
@@ -211,7 +209,7 @@ def setup_app(app: flask.Flask) -> None:
     narr_time = { narr+suffix: time.time() for narr in narrs if narr.startswith(prefix) }
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
-    
+
 
 
 def get_prespawned() -> List[str]:
