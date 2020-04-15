@@ -312,7 +312,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
         except Exception as err:
             logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None),
                             "exception": repr(err)})
-            resp = error_response({"error": "other", "message": repr(err)})
+            resp = error_response({"error": "other", "message": repr(err)}, request)
             session = None
     else:
         # Session already exists, don't pause before reloading
