@@ -327,7 +327,7 @@ def find_stack() -> Dict[str, str]:
 
 
 def stack_suffix() -> str:
-    """ Returns the stack suffix that traefik appends to service names """
+    """ Returns the stack suffix that traefik appends to service names. """
     return("_{}".format(cfg['rancher_stack_name']))
 
 
