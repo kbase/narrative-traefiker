@@ -73,12 +73,12 @@ def check_session(userid: str) -> str:
         r = requests.get(url, auth=(cfg["rancher_user"], cfg["rancher_password"]))
         if not r.ok:
             msg = "Error response code from rancher API while searching for container name {} : {}".format(name, r.status_code)
-            logger.error({"message": msg, "status_code": r.status_code, "name": name, "response_body": r.text})
+            logger.error({"message": msg, "status_code": r.status_code, "service_name": name, "response_body": r.text})
             raise(Exception(msg))
         res = r.json()
         svcs = res['data']
         if len(svcs) == 0:
-            logger.debug({"message": "No previous session found", "name": name, "userid": userid})
+            logger.debug({"message": "No previous session found", "service_name": name, "userid": userid})
             session_id = None
         else:
             session_id = svcs[0]['launchConfig']['labels']['session_id']
@@ -86,7 +86,7 @@ def check_session(userid: str) -> str:
             if len(svcs) > 1:
                 uuids = [svc['uuid'] for svc in svcs]
                 logger.warning({"message": "Found multiple session matches against container name", "userid": userid,
-                               "name": name, "rancher_uuids": uuids})
+                               "service_name": name, "rancher_uuids": uuids})
     except Exception as ex:
         logger.debug({"message": "Error trying to find existing session", "exception": format(str(ex)), "userid": userid})
         raise(ex)
@@ -122,11 +122,11 @@ def start(session: str, userid: str, prespawn: Optional[bool] = False) -> Dict[s
                     rename_narrative(candidate, narr_name)
                     container = find_service(narr_name)
                     session = container['launchConfig']['labels']['session_id']
-                    logger.info({"message": "assigned_container", "userid": userid, "name": narr_name, "session_id": session,
+                    logger.info({"message": "assigned_container", "userid": userid, "service_name": narr_name, "session_id": session,
                                  "client_ip": "127.0.0.1", "attempt": attempt, "status": "success"})
                     break
                 except Exception as ex:
-                    logger.info({"message": "assigned_container_fail", "userid": userid, "name": narr_name, "session_id": session,
+                    logger.info({"message": "assigned_container_fail", "userid": userid, "service_name": narr_name, "session_id": session,
                                  "client_ip": "127.0.0.1", "attempt": attempt, "status": "fail", "error": str(ex)})
             if session:
                 return({"session": session, "prespawned": True})
@@ -289,7 +289,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     # an error state, and overwrite the response with an error response
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
-        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "name": name, "session_id": session,
+        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "service_name": name, "session_id": session,
                     "client_ip": client_ip})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
