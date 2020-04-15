@@ -101,7 +101,9 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
  
 
 def merge_env_cfg() -> None:
-    """ Go through the environment variables and and merge them into the global configuration. """
+    """
+    Go through the environment variables and and merge them into the global configuration.
+    """
     for cfg_item in cfg.keys():
         if cfg_item in os.environ:
             logger.info({"message": "Setting config from environment"})
@@ -136,7 +138,7 @@ def setup_app(app: flask.Flask) -> None:
 
     # Seed the random number generator based on default (time)
     random.seed()
- 
+
     merge_env_cfg()
 
     # Configure logging
@@ -219,7 +221,9 @@ def setup_app(app: flask.Flask) -> None:
 
 
 def get_prespawned() -> List[str]:
-    """ returns a list of the prespawned narratives waiting to be assigned """
+    """
+    Returns a list of the prespawned narratives waiting to be assigned
+    """
     if cfg["mode"] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
     narratives = manage_rancher.find_narratives()
@@ -228,7 +232,9 @@ def get_prespawned() -> List[str]:
 
 
 def prespawn_narrative(num: int) -> None:
-    """ Prespawn num narratives that incoming users can be assigned to immediately """
+    """
+    Prespawn num narratives that incoming users can be assigned to immediately
+    """
     logger.info({"message": "prespawning containers", "number": num})
     if cfg['mode'] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
@@ -397,7 +403,7 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
     except Exception as e:
-        exc_type, exc_obj, tb = sys.exc_info()
+        _, _, tb = sys.exc_info()
         f = tb.tb_frame
         lineno = tb.tb_lineno
         filename = f.f_code.co_filename
