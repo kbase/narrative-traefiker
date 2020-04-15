@@ -22,7 +22,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": u"localhost",                       # hostname used for traefik router rules
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
        "image": u"kbase/narrative:latest",             # image name used for spawning narratives
-       "es_type": "narrative-traefiker",               # value for type field used in logstash json ingest
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
        "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
        "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
@@ -83,21 +82,6 @@ reap_narrative = None
 naming_regex = None
 find_stopped_services = None
 stack_suffix = None
-
-
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
-    def add_fields(self, log_record, record, message_dict):
-        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
-        if not log_record.get('timestamp'):
-            # this doesn't use record.created, so it is slightly off
-            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-            log_record['timestamp'] = now
-        if log_record.get('level'):
-            log_record['level'] = log_record['level'].upper()
-        else:
-            log_record['level'] = record.levelname
-        log_record['container'] = os.environ['HOSTNAME']
-        log_record['type'] = cfg['es_type']
  
 
 def merge_env_cfg() -> None:
@@ -143,10 +127,6 @@ def setup_app(app: flask.Flask) -> None:
 
     # Configure logging
     logging.basicConfig(stream=sys.stdout, level=int(cfg['log_level']))
-    logHandler = logging.StreamHandler()
-    formatter = CustomJsonFormatter('(timestamp) (level) (name) (message) (container) (type)')
-    logHandler.setFormatter(formatter)
-    logger.addHandler(logHandler)
 
     # Remove the default flask logger in favor of the one we just configured
     logger.removeHandler(flask.logging.default_handler)
@@ -485,7 +465,7 @@ def reaper() -> None:
     # Look for any containers that may have died on startup and reap them as well
     try:
         zombies = find_stopped_services().keys()
-        logger.debug({"message": "find_stopped_services() called", "num returned": len(zombies)})
+        logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
         for name in zombies:
             msg = "Container {} identified as zombie container. Reaping.".format(name)
             logger.info({"message": msg})
