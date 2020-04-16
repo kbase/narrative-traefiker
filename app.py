@@ -236,7 +236,15 @@ def reload_msg(narrative: str ) -> flask.Response:
     Return a response object that redirects ultimately to the running narrative container,
     by way of the load-narrative page
     """
-    resp = flask.redirect("/load-narrative.html?n={}&check=true".format(narrative), code=302)
+    msg = """
+<html><head><META HTTP-EQUIV="refresh" CONTENT="0;URL='/load-narrative.html?n={}&check=true'">
+</head>
+<body>
+</body>
+</html>
+"""
+    resp = flask.Response(msg.format(narrative))
+    resp.status_code = 201
     return(resp)
 
 
