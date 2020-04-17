@@ -108,10 +108,12 @@ def start(session: str, userid: str, prespawn: Optional[bool] = False) -> Dict[s
         # usage there might be spike that exhausts the pool of ready containers before replacements
         # are available.
         if len(prespawned) > 0:
-            # Spawn a replacement and immediately rename an existing container to match the
+            # if we're not already over the num)prespawn setting then
+            # spawn a replacement and immediately rename an existing container to match the
             # userid. We are replicating the prespawn container name code here, maybe cause
             # issues later on if the naming scheme is changed!
-            start_new(session, session[0:6], True)
+            if len(prespawned) <= cfg['num_prespawn']:
+                start_new(session, session[0:6], True)
             narr_name = cfg['container_name'].format(userid)
             offset = random.randint(0, len(prespawned)-1)
             session = None
