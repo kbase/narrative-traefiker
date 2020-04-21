@@ -160,7 +160,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'launchConfig':   {
                             u'blkioWeight': None,
                             u'capAdd': [],
-                            u'capDrop': ["NET_RAW"],
+                            u'capDrop': ["MKNOD","NET_RAW","SYS_CHROOT"],
                             u'cgroupParent': None,
                             u'count': None,
                             u'cpuCount': None,
