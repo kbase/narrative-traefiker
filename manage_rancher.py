@@ -160,7 +160,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'launchConfig':   {
                             u'blkioWeight': None,
                             u'capAdd': [],
-                            u'capDrop': ["CHOWN","NET_RAW"],
+                            u'capDrop': ["NET_RAW"],
                             u'cgroupParent': None,
                             u'count': None,
                             u'cpuCount': None,
@@ -254,6 +254,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'selectorLink': None,
                         u'stackId': None,
                         u'startOnCreate': True,
+                        u'system': False,
                         u'type': u'service',
                         u'uuid': None,
                         u'vip': None}
