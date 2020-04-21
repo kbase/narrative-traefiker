@@ -150,7 +150,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     method, with the equivalent rancher exceptions.
     """
     # Crazy long config needed for rancher container startup. Based on observing the traffic from rancher
-    # GUI to rancher REST APIs. Might be able to prune it down with some re
+    # GUI to rancher REST APIs. Might be able to prune it down with some research
     container_config = {u'assignServiceIpAddress': False,
                         u'createIndex': None,
                         u'created': None,
@@ -162,7 +162,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'launchConfig':   {
                             u'blkioWeight': None,
                             u'capAdd': [],
-                            u'capDrop': [],
+                            u'capDrop': ["MKNOD","NET_RAW","SYS_CHROOT"],
                             u'cgroupParent': None,
                             u'count': None,
                             u'cpuCount': None,
@@ -256,6 +256,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'selectorLink': None,
                         u'stackId': None,
                         u'startOnCreate': True,
+                        u'system': False,
                         u'type': u'service',
                         u'uuid': None,
                         u'vip': None}
