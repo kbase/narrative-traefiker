@@ -14,7 +14,7 @@ import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -540,16 +540,24 @@ def narrative_services() -> List[dict]:
         if name.startswith(prespawn_pre):
             info = {"state": "queued", "session_id": "*", "instance": name}
         else:
-            svc = find_service(name)
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
-            info['session_key'] = svc['launchConfig']['labels']['session_id']
-            info['image'] = svc['launchConfig']['imageUuid']
-            info['publicEndpoints'] = str(svc['publicEndpoints'])
-            match = re.match(r'client-ip:(\S+) timestamp:(\S+)', svc['description'])
-            if match:
-                info['last_ip'] = match.group(1)
-                info['created'] = match.group(2)
+            try:
+                svc = find_service(name)
+                info['session_key'] = svc['launchConfig']['labels']['session_id']
+                info['image'] = svc['launchConfig']['imageUuid']
+                info['publicEndpoints'] = str(svc['publicEndpoints'])
+                match = re.match(r'client-ip:(\S+) timestamp:(\S+)', svc['description'])
+                if match:
+                    info['last_ip'] = match.group(1)
+                    info['created'] = match.group(2)
+            except Exception as ex:
+                logger.critical({"message": "Error: Unhandled exception while trying to query service {}: {}".format(name, repr(ex))})
+                info['session_key'] = "Error querying api"
+                info['image'] = None
+                info['publicEndpoints'] = None
+                info['last_ip'] = None
+                info['created'] = None
         narr_services.append(info)
     return(narr_services)
 

@@ -108,10 +108,12 @@ def start(session: str, userid: str, prespawn: Optional[bool] = False) -> Dict[s
         # usage there might be spike that exhausts the pool of ready containers before replacements
         # are available.
         if len(prespawned) > 0:
-            # Spawn a replacement and immediately rename an existing container to match the
+            # if we're not already over the num)prespawn setting then
+            # spawn a replacement and immediately rename an existing container to match the
             # userid. We are replicating the prespawn container name code here, maybe cause
             # issues later on if the naming scheme is changed!
-            start_new(session, session[0:6], True)
+            if len(prespawned) <= cfg['num_prespawn']:
+                start_new(session, session[0:6], True)
             narr_name = cfg['container_name'].format(userid)
             offset = random.randint(0, len(prespawned)-1)
             session = None
@@ -344,15 +346,23 @@ def find_service(traefikname: str) -> dict:
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
         results = r.json()
-        if len(results['data']) == 1:
-            return(results['data'][0])
-        elif len(results['data']) == 0:
+    if len(results['data']) == 0:
             # Assume that the container has already been reaped and ignore
             return(None)
-        else:
-            raise(Exception("Error querying for {}: expected exactly 1 result, got {}".format(name, len(results['data']))))
     else:
-        raise(Exception("Error querying for {}: Response code {}: {}".format(name, r.status_code, r.body)))
+        res = results['data'][0]
+        if len(results['data']) > 1:
+            # If we have more than 1 result, then something is broken. Delete all but the newest image and
+            # return that one
+            logger.error({"message": "There can be only one...container with a name match. Deleting all but the first entry"})
+            for svc in results['data'][1:]:
+                remove_url = svc['actions']['remove']
+                r = requests.delete(remove_url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+                if r.ok:
+                    logger.info({"message": "Removed duplicate narrative {} {}".format(svc['id'],svc['name'])})
+                else:
+                    raise(Exception("Problem duplicate narrative {} {} .: response code {}: {}".format(svc['id'],svc['name'], r.status_code, r.text)))
+        return(res)
 
 
 def find_stopped_services() -> dict:
