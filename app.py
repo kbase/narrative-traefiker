@@ -515,7 +515,8 @@ def narrative_shutdown(username=None):
     auth_status = valid_request(request)
     logger.info({"message": "narrative_shutdown called", "auth_status": str(auth_status)})
     if 'userid' in auth_status:
-        userid = auth_status['userid']
+        dirty_user = auth_status['userid']
+        userid = clean_userid(dirty_user)
         session_id = check_session(userid)
         logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
 
