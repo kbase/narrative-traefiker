@@ -9,6 +9,7 @@ import time
 import re
 from datetime import datetime
 import json
+import hashlib
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -295,7 +296,19 @@ def valid_request(request: Dict[str, str]) -> str:
     return(auth_status)
 
 
-def get_container(userid: str, request: flask.Request, narrative: str) -> flask.Response:
+def clean_userid( userid: str) -> str:
+    """
+    Takes a normal KBase userid and converts it into a userid that is okay to embed in a rancher servicename
+    """
+    hash = hashlib.sha1(userid.encode()).hexdigest()
+    hash = hash[:6]
+    cleaned = re.sub('[\._-]+', '-', userid)
+    max_len = 62 - len(cfg['container_name']) - len(hash)
+    cleaned = "{}-{}".format(cleaned[:max_len], hash)
+    return(cleaned)
+
+
+def get_container(dirty_user: str, request: flask.Request, narrative: str) -> flask.Response:
     """
     Given the request object and the username from validating the token, either find or spin up
     the narrative container that should handle this user's narrative session. The narrative
@@ -304,6 +317,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     message that reloads the page so that traefik reroutes to the right place
     """
     # See if there is an existing session for this user, if so, reuse it
+    userid = clean_userid(dirty_user)
     session = check_session(userid)
     if session is None:
         logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
@@ -501,7 +515,8 @@ def narrative_shutdown(username=None):
     auth_status = valid_request(request)
     logger.info({"message": "narrative_shutdown called", "auth_status": str(auth_status)})
     if 'userid' in auth_status:
-        userid = auth_status['userid']
+        dirty_user = auth_status['userid']
+        userid = clean_userid(dirty_user)
         session_id = check_session(userid)
         logger.debug({"message": "narrative_shutdown session {}".format(session_id)})
 
