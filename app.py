@@ -303,8 +303,8 @@ def clean_userid( userid: str) -> str:
     hash = hashlib.sha1(userid.encode()).hexdigest()
     hash = hash[:6]
     cleaned = re.sub('[\._-]+', '-', userid)
-    max_len = 63 - len(cfg['container_name']) - len(hash)
-    cleaned = cleaned[:max_len]+hash
+    max_len = 62 - len(cfg['container_name']) - len(hash)
+    cleaned = "{}-{}".format(cleaned[:max_len], hash)
     return(cleaned)
 
 
