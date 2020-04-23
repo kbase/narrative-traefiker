@@ -295,7 +295,18 @@ def valid_request(request: Dict[str, str]) -> str:
     return(auth_status)
 
 
-def get_container(userid: str, request: flask.Request, narrative: str) -> flask.Response:
+def clean_userid( userid: str) -> str:
+    """
+    Takes a normal KBase userid and converts it into a userid that is okay to embed in a rancher servicename
+    """
+    cleaned = userid.replace('_','-')
+    cleaned = cleaned.replace('--','-')
+    max_len = 63 - len(cfg['container_name'])
+    cleaned = cleaned[:max_len]
+    return(cleaned)
+
+
+def get_container(dirty_user: str, request: flask.Request, narrative: str) -> flask.Response:
     """
     Given the request object and the username from validating the token, either find or spin up
     the narrative container that should handle this user's narrative session. The narrative
@@ -304,6 +315,7 @@ def get_container(userid: str, request: flask.Request, narrative: str) -> flask.
     message that reloads the page so that traefik reroutes to the right place
     """
     # See if there is an existing session for this user, if so, reuse it
+    userid = clean_userid(dirty_user)
     session = check_session(userid)
     if session is None:
         logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
