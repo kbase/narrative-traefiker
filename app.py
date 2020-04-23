@@ -9,6 +9,7 @@ import time
 import re
 from datetime import datetime
 import json
+import hashlib
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -299,9 +300,11 @@ def clean_userid( userid: str) -> str:
     """
     Takes a normal KBase userid and converts it into a userid that is okay to embed in a rancher servicename
     """
+    hash = hashlib.sha1(userid.encode()).hexdigest()
+    hash = hash[:6]
     cleaned = re.sub('[\._]+', '-', userid)
-    max_len = 63 - len(cfg['container_name'])
-    cleaned = cleaned[:max_len]
+    max_len = 63 - len(cfg['container_name']) - len(hash)
+    cleaned = cleaned[:max_len]+hash
     return(cleaned)
 
 
