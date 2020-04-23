@@ -299,9 +299,7 @@ def clean_userid( userid: str) -> str:
     """
     Takes a normal KBase userid and converts it into a userid that is okay to embed in a rancher servicename
     """
-    cleaned = userid.replace('_','-')
-    cleaned = userid.replace('.','-')
-    cleaned = cleaned.replace('--','-')
+    cleaned = re.sub('[\._]+', '-', userid)
     max_len = 63 - len(cfg['container_name'])
     cleaned = cleaned[:max_len]
     return(cleaned)
