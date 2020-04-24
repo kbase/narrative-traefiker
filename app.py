@@ -447,7 +447,8 @@ def reaper() -> None:
     """
     global narr_last_version
     global narr_activity
-    logger.info({"message": "Reaper process running", "narr_activity keys": str(list(narr_activity.keys()))})
+    log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
+    logger.info({"message": "Reaper process running", "narr_activity": str(log_info)})
     try:
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
