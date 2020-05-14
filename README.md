@@ -1,9 +1,9 @@
 # narrative-traefiker
 Narrative container lifecycle management for traefik
 
+[![Docker Repository on Quay.io](https://quay.io/repository/kbase/narrative-traefiker/status "Docker Repository on Quay.io")](https://quay.io/repository/kbase/narrative-traefiker)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/kbase/narrative-traefiker.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/kbase/narrative-traefiker/alerts/)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/kbase/narrative-traefiker.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/kbase/narrative-traefiker/context:python)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/956eca0aea6a4dddbfd93019446e2f9c)](https://www.codacy.com/gh/kbase/narrative-traefiker?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kbase/narrative-traefiker&amp;utm_campaign=Badge_Grade)
 
 This is a replacement for the original OpenRESTy based Lua narrative lifecycle management code. It uses the same underlying reverse proxy service that JupyterHub is moving towards ( https://blog.jupyter.org/introducing-traefikproxy-a-new-jupyterhub-proxy-based-on-traefik-4839e972faf6 )
 
