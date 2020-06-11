@@ -15,7 +15,7 @@ import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
-VERSION = "0.9.4"
+VERSION = "0.9.5"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
