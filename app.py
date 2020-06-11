@@ -15,7 +15,7 @@ import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
-VERSION = "0.9.4"
+VERSION = "0.9.5"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -302,7 +302,8 @@ def clean_userid( userid: str) -> str:
     """
     hash = hashlib.sha1(userid.encode()).hexdigest()
     hash = hash[:6]
-    cleaned = re.sub('[\._-]+', '-', userid)
+    clean1 = re.sub('[\._-]+', '-', userid)
+    cleaned = re.sub('-$', '-0', clean1)
     max_len = 62 - len(cfg['container_name']) - len(hash)
     cleaned = "{}-{}".format(cleaned[:max_len], hash)
     return(cleaned)
