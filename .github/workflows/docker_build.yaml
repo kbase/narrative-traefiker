@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - master
-      - develop 
 
 jobs:
 
@@ -23,7 +22,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: docker.pkg.github.com
-        repository: kbase/narrative/narrative-dev
+        repository: kbase/narrative-traefiker/prod
         tags: ci-test
         tag_with_ref: true
         tag_with_sha: true
