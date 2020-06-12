@@ -10,12 +10,13 @@ import re
 from datetime import datetime
 import json
 import hashlib
+import signal
 import manage_docker
 import manage_rancher
 from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
-VERSION = "0.9.5"
+VERSION = "0.9.6"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -41,6 +42,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
        "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
+       "reaper": False,                                # set to true to run this as a reaper only process. Reaper does not run otherwise.
        "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
        "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
        "debug": 0,                                     # Set debug mode
@@ -179,10 +181,6 @@ def setup_app(app: flask.Flask) -> None:
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
     logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
                  "reaper_sleep_secs": cfg['reaper_sleep_secs']})
-    scheduler.start()
-    scheduler.add_job(reaper, 'interval', seconds=cfg['reaper_sleep_secs'], id='reaper')
-    # the pre-spawning feature is only supported on rancher, if we prespawn is
-    # set for a number higher than 0, prespawn that number of narratives
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
     # Prepopulate the narr_activity dictionary with current narratives found
@@ -602,6 +600,23 @@ def narrative_status():
     return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
 
 
+def reaper_loop():
+    """
+    Loop that just runs the reaper based on the configuration in the cfg dictionary
+    """
+    def narr_status(signalNumber, frame):
+        print("Current time: {}".format(time.asctime()))
+        for container in narr_activity.keys():
+            print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
+
+    signal.signal(signal.SIGUSR1, narr_status)
+    print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval".format(cfg["reaper_timeout_secs"], cfg["reaper_sleep_secs"]))
+    print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
+    while True:
+        reaper()
+        time.sleep(cfg['reaper_sleep_secs'])
+
+
 @app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
     """
@@ -628,7 +643,10 @@ if __name__ == '__main__':
 
     setup_app(app)
     if cfg['mode'] is not None:
-        app.run()
+        if cfg['reaper']:
+            reaper_loop(cfg)
+        else:
+            app.run()
     else:
         logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
         raise RuntimeError("Cannot start/check containers.")
