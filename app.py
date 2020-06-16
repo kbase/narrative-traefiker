@@ -10,10 +10,8 @@ import re
 from datetime import datetime
 import json
 import hashlib
-import signal
 import manage_docker
 import manage_rancher
-from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Dict, List, Optional
 
 VERSION = "0.9.6"
