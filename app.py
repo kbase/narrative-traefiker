@@ -41,6 +41,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
        "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
+       "reaper_allowed_ip": u"127.0.0.1",              # What IP address is allowed to access /reaper/ ?
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
@@ -601,14 +602,22 @@ def reaper_endpoint():
     """
     Endpoint that just runs the reaper once and returns the status
     """
-    logger.info({"message": "Reaper endpoint called"})
-    try:
-        num = reaper()
-        resp = flask.Response("Reaper success: {} deleted".format(num))
-        resp.status_code=200
-    except Exception as ex:
-        resp = flask.Response("Reaper error: {}".format(repr(ex)))
-        resp.status_code=500
+
+    request = flast.request
+    logger.info({"message": "Reaper endpoint called from {}".format(request.remote_addr)})
+
+    resp = flask.Response("generic Reaper response")
+    if (cfg['reaper_allowed_ip'] == request.remote_addr or cfg['reaper_allowed_ip'] == "0.0.0.0"):
+        try:
+            num = reaper()
+            resp = flask.Response("Reaper success: {} deleted".format(num))
+            resp.status_code=200
+        except Exception as ex:
+            resp = flask.Response("Reaper error: {}".format(repr(ex)))
+            resp.status_code=500
+    else:
+        resp = flask.Response("Reaper error: access denied from IP {}".format(request.remote_addr))
+        resp.status_code = 403
     return(resp)
 
 @app.route("/narrative/" + '<path:narrative>')
