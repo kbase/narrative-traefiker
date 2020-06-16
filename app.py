@@ -603,7 +603,7 @@ def reaper_endpoint():
     Endpoint that just runs the reaper once and returns the status
     """
 
-    request = flast.request
+    request = flask.request
     logger.info({"message": "Reaper endpoint called from {}".format(request.remote_addr)})
 
     resp = flask.Response("generic Reaper response")
