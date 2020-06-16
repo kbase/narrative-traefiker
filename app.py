@@ -603,8 +603,8 @@ def reaper_endpoint():
     """
     logger.info({"message": "Reaper endpoint called"})
     try:
-        reaper()
-        resp = flask.Response("Reaper success")
+        num = reaper()
+        resp = flask.Response("Reaper success: {} deleted".format(num))
         resp.status_code=200
     except Exception as ex:
         resp = flask.Response("Reaper error: {}".format(repr(ex)))
