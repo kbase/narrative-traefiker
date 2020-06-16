@@ -40,6 +40,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
        "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
+       "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
@@ -56,7 +57,7 @@ logger: logging.Logger = logging.getLogger()
 app: flask.Flask = flask.Flask(__name__)
 
 # Scheduler that runs the reaper function
-scheduler: BackgroundScheduler = BackgroundScheduler()
+#scheduler: BackgroundScheduler = BackgroundScheduler()
 
 # Dictionary containing narrative names and the last seen time
 narr_activity: Dict[str, time.time] = dict()
