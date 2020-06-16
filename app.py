@@ -607,7 +607,6 @@ def reaper_endpoint():
     request = flask.request
     logger.info({"message": "Reaper endpoint called from {}".format(request.remote_addr)})
 
-    resp = flask.Response("generic Reaper response")
     if (ipaddress.ip_address(request.remote_addr) in ipaddress.ip_network(cfg['reaper_ipnetwork']) ):
         try:
             num = reaper()
