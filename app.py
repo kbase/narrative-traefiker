@@ -42,9 +42,6 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
        "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
-       "reaper": False,                                # set to true to run this as a reaper only process. Reaper does not run otherwise.
-       "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
-       "reaper_sleep_secs": 30,                        # How long should the reaper process sleep in between runs?
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
@@ -179,8 +176,6 @@ def setup_app(app: flask.Flask) -> None:
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
-    logger.info({"message": "Starting scheduler", "reaper_timeout_sec": cfg['reaper_timeout_secs'],
-                 "reaper_sleep_secs": cfg['reaper_sleep_secs']})
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
     # Prepopulate the narr_activity dictionary with current narratives found
@@ -439,15 +434,17 @@ def reap_older_prespawn(version: str) -> None:
         raise(ex)
 
 
-def reaper() -> None:
+def reaper() -> int:
     """
-    Reaper function, intended to be called at regular intervals specified by cfg['reaper_sleep_secs'].
+    Reaper function, intended to be called at regular intervals specified by cfg['reaper_sleep_secs']. Now being called by
+    /reaper/ endpoint, returning number of narratives reaped
     Updates last seen timestamps for narratives, reaps any that have been idle for longer than cfg['reaper_timeout_secs']
     """
     global narr_last_version
     global narr_activity
+    reaped = 0
     log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
-    logger.info({"message": "Reaper process running", "narr_activity": str(log_info)})
+    logger.info({"message": "Reaper function running", "narr_activity": str(log_info)})
     try:
         newtimestamps = get_active_traefik_svcs()
         narr_activity.update(newtimestamps)
@@ -463,6 +460,7 @@ def reaper() -> None:
         try:
             reap_narrative(name)
             del narr_activity[name]
+            reaped += 1
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
 
@@ -474,6 +472,7 @@ def reaper() -> None:
             msg = "Container {} identified as zombie container. Reaping.".format(name)
             logger.info({"message": msg})
             reap_narrative(name)
+            reaped += 1
     except Exception as ex:
         logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
 
@@ -493,13 +492,14 @@ def reaper() -> None:
                 narr_last_version = latest_version
                 logger.info({"message": "narr_last_version set", "version": narr_last_version})
                 reap_older_prespawn(latest_version)
+                reaped += 1
         except Exception as ex:
             logger.critical({"message": "Error while checking prespawned narrative versions {}".format(repr(ex))})
 
     # Now make sure the narrative prespawn spool is at the desired level
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
-
+    return(reaped)
 
 @app.route("/narrative_shutdown/", methods=['DELETE'])
 @app.route("/narrative_shutdown/<path:username>", methods=['DELETE'])
@@ -600,22 +600,20 @@ def narrative_status():
     return(flask.Response(json.dumps(resp_doc), 200, mimetype='application/json'))
 
 
-def reaper_loop():
+@app.route("/reaper/", methods=['GET'])
+def reaper_endpoint():
     """
-    Loop that just runs the reaper based on the configuration in the cfg dictionary
+    Endpoint that just runs the reaper once and returns the status
     """
-    def narr_status(signalNumber, frame):
-        print("Current time: {}".format(time.asctime()))
-        for container in narr_activity.keys():
-            print("  {} last activity at {}".format(container, time.asctime(time.localtime(narr_activity[container]))))
-
-    signal.signal(signal.SIGUSR1, narr_status)
-    print("Starting narrative reaper with {} seconds timeout and {} seconds sleep interval".format(cfg["reaper_timeout_secs"], cfg["reaper_sleep_secs"]))
-    print("Send this process a SIGUSR1 to output the contents of the reaper timestamps")
-    while True:
+    logger.info({"message": "Reaper endpoint called"})
+    try:
         reaper()
-        time.sleep(cfg['reaper_sleep_secs'])
-
+        resp = flask.Response("Reaper success")
+        resp.status_code=200
+    except Exception as ex:
+        resp = flask.Response("Reaper error: {}".format(repr(ex)))
+        resp.status_code=500
+    return(resp)
 
 @app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
@@ -643,9 +641,6 @@ if __name__ == '__main__':
 
     setup_app(app)
     if cfg['mode'] is not None:
-        if cfg['reaper']:
-            reaper_loop(cfg)
-        else:
             app.run()
     else:
         logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
