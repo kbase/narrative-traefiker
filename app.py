@@ -14,8 +14,9 @@ import manage_docker
 import manage_rancher
 from typing import Dict, List, Optional
 import ipaddress
+import sqlite3
 
-VERSION = "0.9.6"
+VERSION = "0.9.7"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -47,6 +48,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
        "status_role": "KBASE_ADMIN",                   # auth custom role for full narratve_status privs
+       "sqlite_reaperdb_path": "/tmp/reaper.db",             # full path to SQLite3 database file
        "COMMIT_SHA": "not available"}                  # Git commit hash for this build, set via docker build env
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
@@ -108,6 +110,21 @@ def merge_env_cfg() -> None:
             cfg['narrenv'][match.group(1)] = os.environ[k]
             logger.info({"message": "config set",
                          "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
+
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
+    db.row_factory=sqlite3.Row
+    return db
+
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
 
 
 def setup_app(app: flask.Flask) -> None:
@@ -176,6 +193,13 @@ def setup_app(app: flask.Flask) -> None:
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
+
+    logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
+    db.commit()
+       
     # Prepopulate the narr_activity dictionary with current narratives found
     global narr_activity
     narrs = find_narratives()
