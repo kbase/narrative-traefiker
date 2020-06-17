@@ -113,16 +113,16 @@ def merge_env_cfg() -> None:
 
 
 def get_db():
-    db = getattr(g, '_database', None)
+    db = getattr(flask.g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
+        db = flask.g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
     db.row_factory=sqlite3.Row
     return db
 
 
 @app.teardown_appcontext
 def close_connection(exception):
-    db = getattr(g, '_database', None)
+    db = getattr(flask.g, '_database', None)
     if db is not None:
         db.close()
 
