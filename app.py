@@ -197,9 +197,9 @@ def setup_app(app: flask.Flask) -> None:
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
     with app.app_context():
         db = get_db()
-    cursor = db.cursor()
-    cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
-    db.commit()
+        cursor = db.cursor()
+        cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
+        db.commit()
        
     # Prepopulate the narr_activity dictionary with current narratives found
     global narr_activity
