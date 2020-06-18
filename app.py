@@ -515,6 +515,9 @@ def reaper() -> int:
     except Exception as e:
         logger.critical({"message": "ERROR: {}".format(repr(e))})
         return
+    log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
+    logger.debug({"message": "Activity after updated from traefik: ", "narr_activity": str(log_info)})
+
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
 
@@ -537,7 +540,7 @@ def reaper() -> int:
         new_activity = list()
         for key in narr_activity:
             new_activity.append((key, narr_activity[key] ))
-        logger.info({"message": "Saving new narr_activity to database: {}".format(new_activity)})
+        logger.debug({"message": "Saving new narr_activity to database: {}".format(new_activity)})
         # do we trust that the narr_activity dict has the right info?
         # if so then it should be safe to delete the table contents and repopulate from it
         cursor.execute("DELETE FROM narr_activity")
