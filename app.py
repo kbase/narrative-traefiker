@@ -194,13 +194,6 @@ def setup_app(app: flask.Flask) -> None:
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
 
-    logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
-    with app.app_context():
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
-        db.commit()
-       
     # Prepopulate the narr_activity dictionary with current narratives found
     global narr_activity
     narrs = find_narratives()
@@ -214,6 +207,18 @@ def setup_app(app: flask.Flask) -> None:
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
 
+    # list to feed to execute()
+    new_activity = list()
+    for key in narr_activity:
+        new_activity.append((key,time.time()))
+
+    logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
+    with app.app_context():
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
+        cursor.executemany('insert or replace into narr_activity values (?,?)',new_activity)
+        db.commit()
 
 
 def get_prespawned() -> List[str]:
