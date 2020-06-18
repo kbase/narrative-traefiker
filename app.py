@@ -140,7 +140,7 @@ def delete_from_narr_activity_db(servicename: str) -> int:
     """
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM narr_activity WHERE servicename = ?", servicename)
+    cursor.execute("DELETE FROM narr_activity WHERE servicename = ?", [servicename])
     num_rows = cursor.rowcount
     conn.commit()
     return num_rows
