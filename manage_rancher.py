@@ -417,7 +417,6 @@ def rename_narrative(name1: str, name2: str) -> None:
     put_url = res['links']['self']
     # Object with updated values for the service
     data = {"name": name2}
-    request = flask.request
     # On a rename, the request object should always exist, but just in case
     if 'X-Forwarded-For-Original' in flask.request.headers: # This is a hack until we fix traefik to trust upstream nginx forwarded headers
         client_ip = flask.request.headers['X-Forwarded-For-Original']
