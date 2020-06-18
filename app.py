@@ -114,7 +114,7 @@ def merge_env_cfg() -> None:
 
 def get_db():
     """
-    Helper function for getting a database handle as needed
+    Helper function for having flask get a database handle as needed
     """
     db = getattr(flask.g, '_database', None)
     if db is None:
@@ -123,10 +123,22 @@ def get_db():
     return db
 
 
-@app.teardown_appcontext
-def close_connection(exception):
+def get_narr_activity_from_db() -> Dict[ str, float ]:
     """
-    Helper function for closing a database handle automatically
+    Helper function to get the narrative activity from the database.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    narr_activity = dict()
+    for row in cursor.execute('select * from narr_activity'):
+        narr_activity[row['servicename']] = row['lastseen']
+    return narr_activity
+
+
+@app.teardown_appcontext
+def close_connection(exception) -> None:
+    """
+    Helper function for having flask close a database handle automatically
     """
     db = getattr(flask.g, '_database', None)
     if db is not None:
@@ -479,11 +491,7 @@ def reaper() -> int:
 
     # Get narr_activity from the database
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        narr_activity = dict()
-        for row in cursor.execute('select * from narr_activity'):
-            narr_activity[row['servicename']] = row['lastseen']
+        narr_activity = get_narr_activity_from_db()
     except Exception as e:
         logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
         return
@@ -512,6 +520,8 @@ def reaper() -> int:
 
     # Save narr_activity back to the database
     try:
+        conn = get_db()
+        cursor = conn.cursor()
         new_activity = list()
         for key in narr_activity:
             new_activity.append((key,time.time()))
