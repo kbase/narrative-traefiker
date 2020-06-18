@@ -397,12 +397,11 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
     return(resp)
 
 
-def get_active_traefik_svcs() -> Dict[str, time.time]:
+def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
     """
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
     a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
     """
-    narr_activity = dict()
 
     try:
         r = requests.get(cfg['traefik_metrics'])
@@ -513,7 +512,7 @@ def reaper() -> int:
     log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
     logger.info({"message": "Reaper function running", "narr_activity": str(log_info)})
     try:
-        newtimestamps = get_active_traefik_svcs()
+        newtimestamps = get_active_traefik_svcs(narr_activity)
         narr_activity.update(newtimestamps)
     except Exception as e:
         logger.critical({"message": "ERROR: {}".format(repr(e))})
