@@ -402,6 +402,8 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
     a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
     """
+    narr_activity = dict()
+
     try:
         r = requests.get(cfg['traefik_metrics'])
         if r.status_code == 200:
