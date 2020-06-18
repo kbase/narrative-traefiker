@@ -61,7 +61,8 @@ logger: logging.Logger = logging.getLogger()
 app: flask.Flask = flask.Flask(__name__)
 
 # Dictionary containing narrative names and the last seen time
-narr_activity: Dict[str, time.time] = dict()
+# storing in db, removing global version
+# narr_activity: Dict[str, time.time] = dict()
 
 # The last version string seen for the narrative image
 narr_last_version = None
