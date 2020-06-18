@@ -485,7 +485,7 @@ def reaper() -> int:
         for row in cursor.execute('select * from narr_activity'):
             narr_activity[row['servicename']] = row['lastseen']
     except Exception as e:
-        logger.critical({"Could not get data from database: {}".format(repr(e))})
+        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
         return
 
     reaped = 0
@@ -515,11 +515,11 @@ def reaper() -> int:
         new_activity = list()
         for key in narr_activity:
             new_activity.append((key,time.time()))
-        logger.info({"Saving new narr_activity to database: {}".format(new_activity)})
+        logger.info({"message": "Saving new narr_activity to database: {}".format(new_activity)})
         cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
         conn.commit()
     except Exception as e:
-        logger.critical({"Could not save data to database: {}".format(repr(e))})
+        logger.critical({"message": "Could not save data to database: {}".format(repr(e))})
 
     # Look for any containers that may have died on startup and reap them as well
     try:
