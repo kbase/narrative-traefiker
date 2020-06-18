@@ -123,6 +123,19 @@ def get_db():
     return db
 
 
+def get_narr_activity_from_db() -> Dict[ str, float ]:
+    """
+    Helper function for querying the database for narrative activity
+    and returning as a dict.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    narr_activity = dict()
+    for row in cursor.execute('select * from narr_activity'):
+        narr_activity[row['servicename']] = row['lastseen']
+    return narr_activity
+
+
 @app.teardown_appcontext
 def close_connection(exception):
     """
@@ -224,7 +237,7 @@ def setup_app(app: flask.Flask) -> None:
         db = get_db()
         cursor = db.cursor()
         cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
-        cursor.executemany('insert or replace into narr_activity values (?,?)',new_activity)
+        cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)', new_activity)
         db.commit()
 
 
@@ -479,11 +492,7 @@ def reaper() -> int:
 
     # Get narr_activity from the database
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        narr_activity = dict()
-        for row in cursor.execute('select * from narr_activity'):
-            narr_activity[row['servicename']] = row['lastseen']
+        narr_activity = get_narr_activity_from_db()
     except Exception as e:
         logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
         return
