@@ -195,7 +195,8 @@ def setup_app(app: flask.Flask) -> None:
         prespawn_narrative(cfg['num_prespawn'])
 
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
-    db = get_db()
+    with app.app_context():
+        db = get_db()
     cursor = db.cursor()
     cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
     db.commit()
