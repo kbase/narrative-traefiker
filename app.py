@@ -469,7 +469,13 @@ def reaper() -> int:
     Updates last seen timestamps for narratives, reaps any that have been idle for longer than cfg['reaper_timeout_secs']
     """
     global narr_last_version
-    global narr_activity
+
+    conn = get_db()
+    cursor = conn.cursor()
+    narr_activity = dict()
+    for row in cursor.execute('select * from narr_activity'):
+        narr_activity[row['servicename']] = row['lastseen']
+
     reaped = 0
     log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
     logger.info({"message": "Reaper function running", "narr_activity": str(log_info)})
