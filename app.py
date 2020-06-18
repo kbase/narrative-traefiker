@@ -223,7 +223,7 @@ def setup_app(app: flask.Flask) -> None:
         prespawn_narrative(cfg['num_prespawn'])
 
     # Prepopulate the narr_activity dictionary with current narratives found
-    global narr_activity
+    narr_activity = dict()
     narrs = find_narratives()
     logger.debug({"message": "Found existing narrative containers at startup", "names": str(narrs)})
     prefix = cfg['container_name'].format('')
@@ -670,7 +670,8 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    global narr_activity
+    # will need to retrieve this from database in the near future
+    narr_activity = dict()
     logger.info({"message": "Status query recieved"})
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
