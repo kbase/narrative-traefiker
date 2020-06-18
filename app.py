@@ -525,6 +525,7 @@ def reaper() -> int:
             reap_narrative(name)
             # not currently using num_rows but may in the future
             num_rows = delete_from_narr_activity_db(narr_activity[name])
+            del narr_activity[name]
             reaped += 1
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
