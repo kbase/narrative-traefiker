@@ -515,8 +515,8 @@ def reaper() -> int:
         new_activity = list()
         for key in narr_activity:
             new_activity.append((key,time.time()))
-        logger.info("Saving new narr_activity to database: {}".format(new_activity)
-        cursor.executemany('insert or replace into narr_activity values (?,?)',new_activity)
+        logger.info({"Saving new narr_activity to database: {}".format(new_activity)})
+        cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
         conn.commit()
     except Exception as e:
         logger.critical({"Could not save data to database: {}".format(repr(e))})
