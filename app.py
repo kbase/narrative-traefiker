@@ -113,6 +113,9 @@ def merge_env_cfg() -> None:
 
 
 def get_db():
+    """
+    Helper function for getting a database handle as needed
+    """
     db = getattr(flask.g, '_database', None)
     if db is None:
         db = flask.g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
@@ -122,6 +125,9 @@ def get_db():
 
 @app.teardown_appcontext
 def close_connection(exception):
+    """
+    Helper function for closing a database handle automatically
+    """
     db = getattr(flask.g, '_database', None)
     if db is not None:
         db.close()
@@ -213,6 +219,7 @@ def setup_app(app: flask.Flask) -> None:
         new_activity.append((key,time.time()))
 
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
+    # need this because we are not in a flask request context here
     with app.app_context():
         db = get_db()
         cursor = db.cursor()
@@ -470,11 +477,16 @@ def reaper() -> int:
     """
     global narr_last_version
 
-    conn = get_db()
-    cursor = conn.cursor()
-    narr_activity = dict()
-    for row in cursor.execute('select * from narr_activity'):
-        narr_activity[row['servicename']] = row['lastseen']
+    # Get narr_activity from the database
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        narr_activity = dict()
+        for row in cursor.execute('select * from narr_activity'):
+            narr_activity[row['servicename']] = row['lastseen']
+    except Exception as e:
+        logger.critical({"Could not get data from database: {}".format(repr(e))})
+        return
 
     reaped = 0
     log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
@@ -497,6 +509,17 @@ def reaper() -> int:
             reaped += 1
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+
+    # Save narr_activity back to the database
+    try:
+        new_activity = list()
+        for key in narr_activity:
+            new_activity.append((key,time.time()))
+        logger.info("Saving new narr_activity to database: {}".format(new_activity)
+        cursor.executemany('insert or replace into narr_activity values (?,?)',new_activity)
+        conn.commit()
+    except Exception as e:
+        logger.critical({"Could not save data to database: {}".format(repr(e))})
 
     # Look for any containers that may have died on startup and reap them as well
     try:
