@@ -123,19 +123,6 @@ def get_db():
     return db
 
 
-def get_narr_activity_from_db() -> Dict[ str, float ]:
-    """
-    Helper function for querying the database for narrative activity
-    and returning as a dict.
-    """
-    conn = get_db()
-    cursor = conn.cursor()
-    narr_activity = dict()
-    for row in cursor.execute('select * from narr_activity'):
-        narr_activity[row['servicename']] = row['lastseen']
-    return narr_activity
-
-
 @app.teardown_appcontext
 def close_connection(exception):
     """
@@ -492,7 +479,11 @@ def reaper() -> int:
 
     # Get narr_activity from the database
     try:
-        narr_activity = get_narr_activity_from_db()
+        conn = get_db()
+        cursor = conn.cursor()
+        narr_activity = dict()
+        for row in cursor.execute('select * from narr_activity'):
+            narr_activity[row['servicename']] = row['lastseen']
     except Exception as e:
         logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
         return
