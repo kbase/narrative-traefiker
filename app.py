@@ -130,10 +130,20 @@ def get_narr_activity_from_db() -> Dict[ str, float ]:
     conn = get_db()
     cursor = conn.cursor()
     narr_activity = dict()
-    for row in cursor.execute('select * from narr_activity'):
+    for row in cursor.execute('SELECT * FROM narr_activity'):
         narr_activity[row['servicename']] = row['lastseen']
     return narr_activity
 
+def delete_from_narr_activity_db(servicename: str) -> int:
+    """
+    Helper function to delete one row of the narrative activity table in the database.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM narr_activity WHERE servicename = ?", servicename)
+    num_rows = cursor.rowcount
+    conn.commit()
+    return num_rows
 
 @app.teardown_appcontext
 def close_connection(exception) -> None:
@@ -513,7 +523,8 @@ def reaper() -> int:
         logger.info({"message": msg})
         try:
             reap_narrative(name)
-            del narr_activity[name]
+            # not currently using num_rows but may in the future
+            num_rows = delete_from_narr_activity_db(narr_activity[name])
             reaped += 1
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
