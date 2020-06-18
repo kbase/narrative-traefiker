@@ -536,7 +536,7 @@ def reaper() -> int:
         cursor = conn.cursor()
         new_activity = list()
         for key in narr_activity:
-            new_activity.append((key,time.time()))
+            new_activity.append((key, narr_activity[key] ))
         logger.info({"message": "Saving new narr_activity to database: {}".format(new_activity)})
         cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
         conn.commit()
