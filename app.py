@@ -524,7 +524,7 @@ def reaper() -> int:
         try:
             reap_narrative(name)
             # not currently using num_rows but may in the future
-            num_rows = delete_from_narr_activity_db(narr_activity[name])
+#            num_rows = delete_from_narr_activity_db(narr_activity[name])
             del narr_activity[name]
             reaped += 1
         except Exception as e:
@@ -538,6 +538,9 @@ def reaper() -> int:
         for key in narr_activity:
             new_activity.append((key, narr_activity[key] ))
         logger.info({"message": "Saving new narr_activity to database: {}".format(new_activity)})
+        # do we trust that the narr_activity dict has the right info?
+        # if so then it should be safe to delete the table contents and repopulate from it
+        cursor.execute("DELETE FROM narr_activity")
         cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
         conn.commit()
     except Exception as e:
