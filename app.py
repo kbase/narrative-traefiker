@@ -250,19 +250,23 @@ def setup_app(app: flask.Flask) -> None:
     narr_activity.update(narr_time)
 
     # list to feed to execute()
-    new_activity = list()
-    for key in narr_activity:
-        new_activity.append((key,time.time()))
+#    new_activity = list()
+#    for key in narr_activity:
+#        new_activity.append((key,time.time()))
 
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
     # need this because we are not in a flask request context here
-    with app.app_context():
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
-        cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)', new_activity)
-        db.commit()
-
+    try:
+        with app.app_context():
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
+            db.commit()
+#           cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)', new_activity)
+            save_narr_activity_to_db(narr_activity)
+    except Exception as e:
+        logger.critical({"message": "Could not save initial narr_activity data to database: {}".format(repr(e))})
+ 
 
 def get_prespawned() -> List[str]:
     """
