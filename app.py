@@ -677,11 +677,12 @@ def narrative_status():
     logger.info({"message": "Status query received"})
 
     # Get narr_activity from the database
-    try:
-        narr_activity = get_narr_activity_from_db()
-    except Exception as e:
-        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
-        return
+    # not currently used but may use in the future
+#    try:
+#        narr_activity = get_narr_activity_from_db()
+#    except Exception as e:
+#        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
+#        return
 
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
