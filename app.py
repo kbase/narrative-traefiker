@@ -615,11 +615,12 @@ def narrative_shutdown(username=None):
                 logger.debug({"message": "narrative_shutdown reaping", "session_id": session_id})
                 reap_narrative(name)
                 # Try to clear the narrative out of the narr_activity dict, by matching the container
-                # name as the priagainst what Traefik would call
+                # name against what Traefik would call
+                # (this seems to not be matching anything for some reason)
                 name_match = naming_regex.format(name)
                 for narr_name in narr_activity.keys():
                     if re.match(name_match, narr_name):
-                        del narr_activity[narr_name]
+                        delete_from_narr_activity_db(narr_activity[narr_name])
                         break
                 resp = flask.Response("Service {} deleted".format(name), 200)
             except Exception as e:
@@ -672,13 +673,20 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    # will need to retrieve this from database in the near future
-    narr_activity = dict()
-    logger.info({"message": "Status query recieved"})
+
+    logger.info({"message": "Status query received"})
+
+    # Get narr_activity from the database
+    try:
+        narr_activity = get_narr_activity_from_db()
+    except Exception as e:
+        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
+        return
+
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
     auth_status = valid_request(request)
-    logger.debug({"message": "Status query recieved", "auth_status": auth_status})
+    logger.debug({"message": "Status query received", "auth_status": auth_status})
     if 'userid' in auth_status:
         if cfg['status_role'] in auth_status['customroles']:
             resp_doc['narrative_services'] = narrative_services()
