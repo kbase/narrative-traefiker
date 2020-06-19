@@ -262,12 +262,10 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'vip': None}
     if prespawn is False:
         name = cfg['container_name'].format(userid)
-        client_ip = flask.request.headers['X-Forwarded-For']
-        try:  # Set client ip from request object if available
-            container_config['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
-                                                                                 datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
-        except Exception:
-            logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
+        # This is a hack until we fix traefik to trust upstream nginx forwarded headers
+        client_ip = flask.request.headers.get('X-Forwarded-For-Original', flask.request.headers('X-Forwarded-For', None))
+        container_config['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
+                                                                             datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
     else:
         name = cfg['container_name_prespawn'].format(userid)
         client_ip = None
@@ -419,9 +417,13 @@ def rename_narrative(name1: str, name2: str) -> None:
     put_url = res['links']['self']
     # Object with updated values for the service
     data = {"name": name2}
-    request = flask.request
     # On a rename, the request object should always exist, but just in case
-    data['description'] = 'client-ip:{} timestamp:{}'.format(request.headers.get('X-Forwarded-For', None),
+    if 'X-Forwarded-For-Original' in flask.request.headers: # This is a hack until we fix traefik to trust upstream nginx forwarded headers
+        client_ip = flask.request.headers['X-Forwarded-For-Original']
+    else:
+        client_ip = flask.request.headers.get('X-Forwarded-For', None)
+
+    data['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
                                                              datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
     r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data=data)
     if r.ok:
