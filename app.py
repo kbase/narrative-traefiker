@@ -135,6 +135,19 @@ def get_narr_activity_from_db() -> Dict[ str, float ]:
         narr_activity[row['servicename']] = row['lastseen']
     return narr_activity
 
+
+def save_narr_activity_to_db(narr_activity: Dict[ str, float ]) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    new_activity = list()
+    for key in narr_activity:
+        new_activity.append((key, narr_activity[key] ))
+    logger.debug({"message": "Saving new narr_activity to database: {}".format(new_activity)})
+    cursor.execute("DELETE FROM narr_activity")
+    cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
+    conn.commit()
+
+
 def delete_from_narr_activity_db(servicename: str) -> int:
     """
     Helper function to delete one row of the narrative activity table in the database.
@@ -537,17 +550,9 @@ def reaper() -> int:
 
     # Save narr_activity back to the database
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        new_activity = list()
-        for key in narr_activity:
-            new_activity.append((key, narr_activity[key] ))
-        logger.debug({"message": "Saving new narr_activity to database: {}".format(new_activity)})
-        # do we trust that the narr_activity dict has the right info?
-        # if so then it should be safe to delete the table contents and repopulate from it
-        cursor.execute("DELETE FROM narr_activity")
-        cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
-        conn.commit()
+        # trust that the narr_activity dict has the right info
+        # if true then it should be safe to delete the table contents and repopulate from it
+        save_narr_activity_to_db(narr_activity)
     except Exception as e:
         logger.critical({"message": "Could not save data to database: {}".format(repr(e))})
 
