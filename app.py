@@ -400,7 +400,7 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
 def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
     """
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
-    a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
+    a dictionary identical in structure to the narr_activity structure used in reaper() .
     """
 
     try:
@@ -425,7 +425,7 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                     logger.debug({"message": "Matches prefix"})
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
-                    if (cfg['narr_img'] in image_name):
+                    if (image_name is not None and cfg['narr_img'] in image_name):
                         logger.debug({"message": "Matches image name"})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it.
