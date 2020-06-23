@@ -419,7 +419,6 @@ def rename_narrative(name1: str, name2: str) -> None:
     put_url = res['links']['self']
     # Object with updated values for the service
     data = {"name": name2}
-    request = flask.request
     # On a rename, the request object should always exist, but just in case
     client_ip = request.headers.get("X-Real-Ip", request.headers.get("X-Forwarded-For", None))
     data['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,

@@ -17,6 +17,7 @@ The following environment variables should be in the startup environment:
 * rancher_user - the user id used in the rancher credentials for accessing the rancher API. These credential should have create privs in the environment that traefik and narrative-traefiker are running
 * rancher_password - password for rancher access
 * rancher_url - endpoint for the rancher API, this service is currently written to use the "v2-beta" api
+* reaper_ipnetwork - one network that is allowed to access the /reaper/ endpoint
 
 Any config key in the cfg dictionary can be overridden by an environment variable.
 
@@ -28,6 +29,8 @@ The following labels need to be set to have traefik recognize this container and
 * traefik.http.routers.authsvc.entrypoints = web
 
 A port has to be exposed on this container for traefik to properly route to it. Internally this service uses port 5000, recommendation is to export 5000 as well.
+
+Normally, narrative containers will simply run indefinitely.  In order to clean up inactive containers, contact the service's /reaper/ endpoint, which will remove any containers which have not had active traffic for `reaper_timeout_secs` (default 600 seconds/10 minutes).  Use the `reaper_ipnetwork` environment variable to restrict access to one subnet (can specify 0.0.0.0/0 to disable access control).
 
 The location for finding metrics on container activity is in the configuration "traefik_metrics" and defaults to "http://traefik:8080/metrics". This means the traefik service needs to be named "traefik" and exposing metrics on port 8080.
 
