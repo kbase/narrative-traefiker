@@ -60,10 +60,6 @@ logger: logging.Logger = logging.getLogger()
 
 app: flask.Flask = flask.Flask(__name__)
 
-# Dictionary containing narrative names and the last seen time
-# storing in db, removing global version
-# narr_activity: Dict[str, time.time] = dict()
-
 # The last version string seen for the narrative image
 narr_last_version = None
 
@@ -249,20 +245,14 @@ def setup_app(app: flask.Flask) -> None:
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
 
-    # list to feed to execute()
-#    new_activity = list()
-#    for key in narr_activity:
-#        new_activity.append((key,time.time()))
-
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
-    # need this because we are not in a flask request context here
     try:
+        # need this because we are not in a flask request context here
         with app.app_context():
             db = get_db()
             cursor = db.cursor()
             cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
             db.commit()
-#           cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)', new_activity)
             save_narr_activity_to_db(narr_activity)
     except Exception as e:
         logger.critical({"message": "Could not save initial narr_activity data to database: {}".format(repr(e))})
@@ -545,8 +535,7 @@ def reaper() -> int:
         logger.info({"message": msg})
         try:
             reap_narrative(name)
-            # not currently using num_rows but may in the future
-#            num_rows = delete_from_narr_activity_db(narr_activity[name])
+            # possible future work: use helper function to delete an entry from narr_activity in db
             del narr_activity[name]
             reaped += 1
         except Exception as e:
@@ -626,6 +615,7 @@ def narrative_shutdown(username=None):
                 # Try to clear the narrative out of the narr_activity dict, by matching the container
                 # name against what Traefik would call
                 # (this seems to not be matching anything for some reason)
+                # possible future work: use helper function to delete entry from narr_activity in db
                 name_match = naming_regex.format(name)
                 for narr_name in narr_activity.keys():
                     if re.match(name_match, narr_name):
@@ -687,11 +677,11 @@ def narrative_status():
 
     # Get narr_activity from the database
     # not currently used but may use in the future
-#    try:
-#        narr_activity = get_narr_activity_from_db()
-#    except Exception as e:
-#        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
-#        return
+    try:
+        narr_activity = get_narr_activity_from_db()
+    except Exception as e:
+        logger.critical({"message": "Could not get narr_activity data from database: {}".format(repr(e))})
+        return
 
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
