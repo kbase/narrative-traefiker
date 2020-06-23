@@ -262,12 +262,12 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
                         u'vip': None}
     if prespawn is False:
         name = cfg['container_name'].format(userid)
-        client_ip = flask.request.headers['X-Forwarded-For']
+        client_ip = flask.request.headers.get("X-Real-Ip", flask.request.headers.get("X-Forwarded-For", None))
         try:  # Set client ip from request object if available
             container_config['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
                                                                                  datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
         except Exception:
-            logger.error({"message": "Error checking flask.request.headers[X-Forwarded-For]"})
+            logger.error({"message": "Error checking flask.request.headers for X-Real-Ip or X-Forwarded-For"})
     else:
         name = cfg['container_name_prespawn'].format(userid)
         client_ip = None
@@ -421,7 +421,8 @@ def rename_narrative(name1: str, name2: str) -> None:
     data = {"name": name2}
     request = flask.request
     # On a rename, the request object should always exist, but just in case
-    data['description'] = 'client-ip:{} timestamp:{}'.format(request.headers.get('X-Forwarded-For', None),
+    client_ip = request.headers.get("X-Real-Ip", request.headers.get("X-Forwarded-For", None))
+    data['description'] = 'client-ip:{} timestamp:{}'.format(client_ip,
                                                              datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
     r = requests.put(put_url, auth=(cfg['rancher_user'], cfg['rancher_password']), data=data)
     if r.ok:
