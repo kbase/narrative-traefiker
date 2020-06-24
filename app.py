@@ -109,7 +109,7 @@ def merge_env_cfg() -> None:
                          "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
 
 
-def get_db():
+def get_db() -> sqlite3.Connection:
     """
     Helper function for having flask get a database handle as needed
     """
