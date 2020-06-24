@@ -257,7 +257,8 @@ def error_response(auth_status: Dict[str, str], request: flask.request) -> flask
     else:
         resp = flask.Response(errors['other']+auth_status['message'])
         resp.status_code = 400
-    logger.info({"message": "auth_error", "client_ip": request.headers.get("X-Forwarded-For", None), "error": auth_status['error'],
+    client_ip = request.headers.get("X-Real-Ip", request.headers.get("X-Forwarded-For", None))
+    logger.info({"message": "auth_error", "client_ip": client_ip, "error": auth_status['error'],
                 "detail": auth_status.get('message', "")})
     return(resp)
 
@@ -311,8 +312,9 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
     # See if there is an existing session for this user, if so, reuse it
     userid = clean_userid(dirty_user)
     session = check_session(userid)
+    client_ip = request.headers.get("X-Real-Ip", request.headers.get("X-Forwarded-For", None))
     if session is None:
-        logger.debug({"message": "new_session", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None)})
+        logger.debug({"message": "new_session", "userid": userid, "client_ip": client_ip})
         resp = reload_msg(narrative)
         session = random.getrandbits(128).to_bytes(16, "big").hex()
         try:
@@ -323,7 +325,7 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
             if "prespawned" in response:
                 resp = reload_msg(narrative)
         except Exception as err:
-            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None),
+            logger.critical({"message": "start_container_exception", "userid": userid, "client_ip": client_ip,
                             "exception": repr(err)})
             resp = error_response({"error": "other", "message": repr(err)}, request)
             session = None
@@ -332,7 +334,7 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
         resp = reload_msg(narrative)
     if session is not None:
         cookie = "{}={}".format(cfg['session_cookie'], session)
-        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": request.headers.get("X-Forwarded-For", None), "cookie": cookie})
+        logger.debug({"message": "session_cookie", "userid": userid, "client_ip": client_ip, "cookie": cookie})
         resp.set_cookie(cfg['session_cookie'], session)
     return(resp)
 
