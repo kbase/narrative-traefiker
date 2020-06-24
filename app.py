@@ -617,6 +617,11 @@ def narrative_shutdown(username=None):
                 # (this seems to not be matching anything for some reason)
                 # possible future work: use helper function to delete entry from narr_activity in db
                 name_match = naming_regex.format(name)
+                try:
+                    narr_activity = get_narr_activity_from_db()
+                except Exception as e:
+                    logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
+                    raise(e)
                 for narr_name in narr_activity.keys():
                     if re.match(name_match, narr_name):
                         delete_from_narr_activity_db(narr_activity[narr_name])
