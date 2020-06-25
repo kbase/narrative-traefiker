@@ -562,7 +562,7 @@ def reaper() -> int:
                 reap_narrative(name)
                 reaped += 1
             else:
-                msg = "Not reaping started-once container {} , does not match prefix {} ".format(name,cfg['zombie_service_prefix'])
+                msg = "Not reaping started-once container {} , does not match prefixes {} or {} ".format(name,cfg['container_name'],cfg['container_name_prespawn'])
                 logger.info({"message": msg})
     except Exception as ex:
         logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
