@@ -556,10 +556,14 @@ def reaper() -> int:
         zombies = find_stopped_services().keys()
         logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
         for name in zombies:
-            msg = "Container {} identified as zombie container. Reaping.".format(name)
-            logger.info({"message": msg})
-            reap_narrative(name)
-            reaped += 1
+            if ( cfg['container_name'].format("") in name or cfg['container_name_prespawn'].format("") in name ):
+                msg = "Container {} identified as zombie container. Reaping.".format(name)
+                logger.info({"message": msg})
+                reap_narrative(name)
+                reaped += 1
+            else:
+                msg = "Not reaping started-once container {} , does not match prefixes {} or {} ".format(name,cfg['container_name'],cfg['container_name_prespawn'])
+                logger.info({"message": msg})
     except Exception as ex:
         logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
 
