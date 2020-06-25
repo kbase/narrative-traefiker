@@ -553,10 +553,15 @@ def narrative_services() -> List[dict]:
     narr_pre = cfg['container_name'].format('')
     for name in narr_names:
         if name.startswith(prespawn_pre):
-            info = {"state": "queued", "session_id": "*", "instance": name}
+            info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime() }
         else:
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
+            try:
+                info['last_seen'] = time.asctime()
+            except Exception as ex:
+                logger.critical({"message": "Error: adding last_seen field to status message", "error": repr(ex),
+                                 "container": name})
             try:
                 svc = find_service(name)
                 info['session_key'] = svc['launchConfig']['labels']['session_id']
@@ -585,7 +590,6 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    global narr_activity
     logger.info({"message": "Status query recieved"})
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
