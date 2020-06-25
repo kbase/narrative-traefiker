@@ -44,6 +44,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
        "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
        "reaper_ipnetwork": u"127.0.0.1/32",            # What IP address/network is allowed to access /reaper/ ?
+       "zombie_service_prefix": "narrative",           # Prefix for name of services zombie reaper should reap (use empty string to match any name)
        "debug": 0,                                     # Set debug mode
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
@@ -556,10 +557,14 @@ def reaper() -> int:
         zombies = find_stopped_services().keys()
         logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
         for name in zombies:
-            msg = "Container {} identified as zombie container. Reaping.".format(name)
-            logger.info({"message": msg})
-            reap_narrative(name)
-            reaped += 1
+            if name.startswith(cfg['zombie_service_prefix']):
+                msg = "Container {} identified as zombie container. Reaping.".format(name)
+                logger.info({"message": msg})
+                reap_narrative(name)
+                reaped += 1
+            else:
+                msg = "Not reaping started-once container {} , does not match prefix {} ".format(name,cfg['zombie_service_prefix'])
+                logger.info({"message": msg})
     except Exception as ex:
         logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
 
