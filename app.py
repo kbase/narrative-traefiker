@@ -556,7 +556,7 @@ def reaper() -> int:
         zombies = find_stopped_services().keys()
         logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
         for name in zombies:
-            if ( name.startswith(cfg['container_name']) or name.startswith(cfg['container_name_prespawn']) ):
+            if ( cfg['container_name'].format("") in name or cfg['container_name_prespawn'].format("") in name ):
                 msg = "Container {} identified as zombie container. Reaping.".format(name)
                 logger.info({"message": msg})
                 reap_narrative(name)
