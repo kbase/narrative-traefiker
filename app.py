@@ -547,7 +547,6 @@ def narrative_services() -> List[dict]:
     """
     Queries the rancher APIs to build a list of narrative container descriptors
     """
-    global narr_activity
     narr_names = find_narratives()
     narr_services = []
     prespawn_pre = cfg['container_name_prespawn'].format('')
@@ -591,7 +590,6 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    global narr_activity
     logger.info({"message": "Status query recieved"})
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
