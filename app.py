@@ -547,16 +547,22 @@ def narrative_services() -> List[dict]:
     """
     Queries the rancher APIs to build a list of narrative container descriptors
     """
+    global narr_activity
     narr_names = find_narratives()
     narr_services = []
     prespawn_pre = cfg['container_name_prespawn'].format('')
     narr_pre = cfg['container_name'].format('')
     for name in narr_names:
         if name.startswith(prespawn_pre):
-            info = {"state": "queued", "session_id": "*", "instance": name}
+            info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime() }
         else:
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
+            try:
+                info['last_seen'] = time.asctime()
+            except Exception as ex:
+                logger.critical({"message": "Error: adding last_seen field to status message", "error": repr(ex),
+                                 "container": name})
             try:
                 svc = find_service(name)
                 info['session_key'] = svc['launchConfig']['labels']['session_id']
