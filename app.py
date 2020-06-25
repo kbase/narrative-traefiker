@@ -14,8 +14,9 @@ import manage_docker
 import manage_rancher
 from typing import Dict, List, Optional
 import ipaddress
+import sqlite3
 
-VERSION = "0.9.6"
+VERSION = "0.9.7"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -47,6 +48,7 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "narrenv": dict(),                              # Dictionary of env name/val to be passed to narratives at startup
        "num_prespawn": 5,                              # How many prespawned narratives should be maintained? Checked at startup and reapee runs
        "status_role": "KBASE_ADMIN",                   # auth custom role for full narratve_status privs
+       "sqlite_reaperdb_path": "/tmp/reaper.db",             # full path to SQLite3 database file
        "COMMIT_SHA": "not available"}                  # Git commit hash for this build, set via docker build env
 
 # Put all error strings in 1 place for ease of maintenance and to do comparisons for
@@ -57,9 +59,6 @@ errors: Optional[Dict[str, str]] = None
 logger: logging.Logger = logging.getLogger()
 
 app: flask.Flask = flask.Flask(__name__)
-
-# Dictionary containing narrative names and the last seen time
-narr_activity: Dict[str, time.time] = dict()
 
 # The last version string seen for the narrative image
 narr_last_version = None
@@ -108,6 +107,62 @@ def merge_env_cfg() -> None:
             cfg['narrenv'][match.group(1)] = os.environ[k]
             logger.info({"message": "config set",
                          "key": "narrenv.{}".format(match.group(1)), "value": os.environ[k]})
+
+
+def get_db() -> sqlite3.Connection:
+    """
+    Helper function for having flask get a database handle as needed
+    """
+    db = getattr(flask.g, '_database', None)
+    if db is None:
+        db = flask.g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
+    db.row_factory=sqlite3.Row
+    return db
+
+
+def get_narr_activity_from_db() -> Dict[ str, float ]:
+    """
+    Helper function to get the narrative activity from the database.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    narr_activity = dict()
+    for row in cursor.execute('SELECT * FROM narr_activity'):
+        narr_activity[row['servicename']] = row['lastseen']
+    return narr_activity
+
+
+def save_narr_activity_to_db(narr_activity: Dict[ str, float ]) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    new_activity = list()
+    for key in narr_activity:
+        new_activity.append((key, narr_activity[key] ))
+    logger.debug({"message": "Saving new narr_activity to database: {}".format(new_activity)})
+    cursor.execute("DELETE FROM narr_activity")
+    cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
+    conn.commit()
+
+
+def delete_from_narr_activity_db(servicename: str) -> int:
+    """
+    Helper function to delete one row of the narrative activity table in the database.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM narr_activity WHERE servicename = ?", [servicename])
+    num_rows = cursor.rowcount
+    conn.commit()
+    return num_rows
+
+@app.teardown_appcontext
+def close_connection(exception) -> None:
+    """
+    Helper function for having flask close a database handle automatically
+    """
+    db = getattr(flask.g, '_database', None)
+    if db is not None:
+        db.close()
 
 
 def setup_app(app: flask.Flask) -> None:
@@ -176,8 +231,9 @@ def setup_app(app: flask.Flask) -> None:
     logger.info({'message': "container management mode set to: {}".format(cfg['mode'])})
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
+
     # Prepopulate the narr_activity dictionary with current narratives found
-    global narr_activity
+    narr_activity = dict()
     narrs = find_narratives()
     logger.debug({"message": "Found existing narrative containers at startup", "names": str(narrs)})
     prefix = cfg['container_name'].format('')
@@ -189,7 +245,18 @@ def setup_app(app: flask.Flask) -> None:
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
 
-
+    logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
+    try:
+        # need this because we are not in a flask request context here
+        with app.app_context():
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute('CREATE TABLE IF NOT EXISTS narr_activity (servicename TEXT PRIMARY KEY, lastseen FLOAT)')
+            db.commit()
+            save_narr_activity_to_db(narr_activity)
+    except Exception as e:
+        logger.critical({"message": "Could not save initial narr_activity data to database: {}".format(repr(e))})
+ 
 
 def get_prespawned() -> List[str]:
     """
@@ -339,11 +406,12 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
     return(resp)
 
 
-def get_active_traefik_svcs() -> Dict[str, time.time]:
+def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
     """
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
-    a dictionary identical in structure to the global narr_activity, which can be used to update() narr_activity
+    a dictionary identical in structure to the narr_activity structure used in reaper() .
     """
+
     try:
         r = requests.get(cfg['traefik_metrics'])
         if r.status_code == 200:
@@ -366,7 +434,7 @@ def get_active_traefik_svcs() -> Dict[str, time.time]:
                     logger.debug({"message": "Matches prefix"})
                     image_name = find_image(name)
                     # Filter out any container that isn't the image type we are reaping
-                    if (cfg['narr_img'] in image_name):
+                    if (image_name is not None and cfg['narr_img'] in image_name):
                         logger.debug({"message": "Matches image name"})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it.
@@ -441,16 +509,26 @@ def reaper() -> int:
     Updates last seen timestamps for narratives, reaps any that have been idle for longer than cfg['reaper_timeout_secs']
     """
     global narr_last_version
-    global narr_activity
+
+    # Get narr_activity from the database
+    try:
+        narr_activity = get_narr_activity_from_db()
+    except Exception as e:
+        logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
+        return
+
     reaped = 0
     log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
     logger.info({"message": "Reaper function running", "narr_activity": str(log_info)})
     try:
-        newtimestamps = get_active_traefik_svcs()
+        newtimestamps = get_active_traefik_svcs(narr_activity)
         narr_activity.update(newtimestamps)
     except Exception as e:
         logger.critical({"message": "ERROR: {}".format(repr(e))})
         return
+    log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
+    logger.debug({"message": "Activity after updated from traefik: ", "narr_activity": str(log_info)})
+
     now = time.time()
     reap_list = [name for name, timestamp in narr_activity.items() if (now - timestamp) > cfg['reaper_timeout_secs']]
 
@@ -459,10 +537,19 @@ def reaper() -> int:
         logger.info({"message": msg})
         try:
             reap_narrative(name)
+            # possible future work: use helper function to delete an entry from narr_activity in db
             del narr_activity[name]
             reaped += 1
         except Exception as e:
             logger.critical({"message": "Error: Unhandled exception while trying to reap container {}: {}".format(name, repr(e))})
+
+    # Save narr_activity back to the database
+    try:
+        # trust that the narr_activity dict has the right info
+        # if true then it should be safe to delete the table contents and repopulate from it
+        save_narr_activity_to_db(narr_activity)
+    except Exception as e:
+        logger.critical({"message": "Could not save data to database: {}".format(repr(e))})
 
     # Look for any containers that may have died on startup and reap them as well
     try:
@@ -528,11 +615,18 @@ def narrative_shutdown(username=None):
                 logger.debug({"message": "narrative_shutdown reaping", "session_id": session_id})
                 reap_narrative(name)
                 # Try to clear the narrative out of the narr_activity dict, by matching the container
-                # name as the priagainst what Traefik would call
+                # name against what Traefik would call
+                # (this seems to not be matching anything for some reason)
+                # possible future work: use helper function to delete entry from narr_activity in db
                 name_match = naming_regex.format(name)
+                try:
+                    narr_activity = get_narr_activity_from_db()
+                except Exception as e:
+                    logger.critical({"message": "Could not get data from database: {}".format(repr(e))})
+                    raise(e)
                 for narr_name in narr_activity.keys():
                     if re.match(name_match, narr_name):
-                        del narr_activity[narr_name]
+                        delete_from_narr_activity_db(narr_activity[narr_name])
                         break
                 resp = flask.Response("Service {} deleted".format(name), 200)
             except Exception as e:
@@ -590,11 +684,21 @@ def narrative_status():
     list of ID's in cfg['status_users'] then a dump of the current narratives running and their last
     active time from narr_activity is returned in JSON form, ready to be consumed by a metrics service
     """
-    logger.info({"message": "Status query recieved"})
+
+    logger.info({"message": "Status query received"})
+
+    # Get narr_activity from the database
+    # not currently used but may use in the future
+    try:
+        narr_activity = get_narr_activity_from_db()
+    except Exception as e:
+        logger.critical({"message": "Could not get narr_activity data from database: {}".format(repr(e))})
+        return
+
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
     auth_status = valid_request(request)
-    logger.debug({"message": "Status query recieved", "auth_status": auth_status})
+    logger.debug({"message": "Status query received", "auth_status": auth_status})
     if 'userid' in auth_status:
         if cfg['status_role'] in auth_status['customroles']:
             resp_doc['narrative_services'] = narrative_services()
