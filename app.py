@@ -656,6 +656,11 @@ def narrative_services() -> List[dict]:
         logger.critical({"message": "Could not get data from database for narrative_status, faking last_seen: {}".format(repr(e))})
         narr_activity = None
     
+    try:
+        suffix = stack_suffix()
+    except:
+        suffix = ""
+    
     for name in narr_names:
         if name.startswith(prespawn_pre):
             info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime() }
@@ -664,7 +669,7 @@ def narrative_services() -> List[dict]:
             info = {"instance": name, "state": "active", "session_id": user}
             if narr_activity:
                 try:
-                    info['last_seen'] = time.asctime(narr_activity[name])
+                    info['last_seen'] = time.asctime(narr_activity[name+suffix])
                 except Exception as ex:
                     logger.critical({"message": "Error: adding last_seen field", "error": repr(ex),
                                      "container": name})
