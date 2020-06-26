@@ -669,7 +669,7 @@ def narrative_services() -> List[dict]:
             info = {"instance": name, "state": "active", "session_id": user}
             if narr_activity:
                 try:
-                    info['last_seen'] = time.asctime(narr_activity[name+suffix])
+                    info['last_seen'] = time.gmtime(narr_activity[name+suffix])
                 except Exception as ex:
                     logger.critical({"message": "Error: adding last_seen field", "error": repr(ex),
                                      "container": name})
