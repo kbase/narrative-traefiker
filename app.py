@@ -649,17 +649,27 @@ def narrative_services() -> List[dict]:
     narr_services = []
     prespawn_pre = cfg['container_name_prespawn'].format('')
     narr_pre = cfg['container_name'].format('')
+    try:
+        narr_activity = get_narr_activity_from_db()
+    except Exception as e:
+        logger.critical({"message": "Could not get data from database for narrative_status, faking last_seen: {}".format(repr(e))})
+        narr_activity = None
+    
     for name in narr_names:
         if name.startswith(prespawn_pre):
             info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime() }
         else:
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
-            try:
-                info['last_seen'] = time.asctime()
-            except Exception as ex:
-                logger.critical({"message": "Error: adding last_seen field to status message", "error": repr(ex),
-                                 "container": name})
+            if narr_activity:
+                try:
+                    info['last_seen'] = time.asctime(narr_activity[user])
+                except Exception as ex:
+                    logger.critical({"message": "Error: adding last_seen field", "error": repr(ex),
+                                     "container": name})
+                    info['last_seen'] = time.asctime() # just use current time as last seen
+            else:
+                    info['last_seen'] = time.asctime()
             try:
                 svc = find_service(name)
                 info['session_key'] = svc['launchConfig']['labels']['session_id']
