@@ -651,7 +651,6 @@ def narrative_services() -> List[dict]:
     narr_pre = cfg['container_name'].format('')
     try:
         narr_activity = get_narr_activity_from_db()
-        logger.critical({"message": "keys from narr_activity db:{}".format(",".join(narr_activity.keys()))})
     except Exception as e:
         logger.critical({"message": "Could not get data from database for narrative_status, faking last_seen: {}".format(repr(e))})
         narr_activity = None
