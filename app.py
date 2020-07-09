@@ -438,12 +438,13 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(prefix):
                     logger.debug({"message": "Matches prefix"})
+                    # services from traefik has a suffix which needs to be stripped to match
+                    # against results from rancher API
                     if suffix and name.endswith(suffix):
                         service_name=name[:-len(suffix)]
                     else:
                         service_name = name
                     logger.debug({"message": "Looking for service named {}".format(service_name)})
-                    # Filter out any container that isn't the image type we are reaping
                     if (service_name in all_narr_containers):
                         logger.debug({"message": "Matches running service"})
                         # only update timestamp if the container has active websockets or this is the first
