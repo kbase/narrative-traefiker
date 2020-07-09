@@ -452,7 +452,7 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
               r.status_code, r.body)))
     results = r.json()
     svcs = results['data']
-    imageUuid = "docker:{}".format(cfg['image'])
+    imageUuid = "docker:{}".format(image_name)
     svc_names = [svc['name'] for svc in svcs if svc['launchConfig']['imageUuid'] == imageUuid]
     return(svc_names)
 
