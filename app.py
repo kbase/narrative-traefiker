@@ -417,32 +417,42 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
         if r.status_code == 200:
             body = r.text.split("\n")
             # Find all counters related to websockets - jupyter notebooks rely on websockets for communications
-            service_conn = [line for line in body if "traefik_service_open_connections{" in line]
-            service_websocket_open = [line for line in service_conn if "protocol=\"websocket\"" in line]
+            websock_re = re.compile('traefik_service_open_connections\{\S+protocol="websocket",service=\"(\S+)@.+ (\d+)')
             # Containers is a dictionary keyed on container name with the value as the # of active web sockets
             containers = dict()
-            for line in service_websocket_open:
-                logger.debug({"message": "websocket line: {}".format(line)})
-                matches = re.search(r"service=\"(\S+)@.+ (\d+)", line)
-                containers[matches.group(1)] = int(matches.group(2))
+            for line in body:
+                match = websock_re.match(line)
+                if match:
+                    logger.debug({"message": "websocket line: {}".format(line)})
+                    containers[match.group(1)] = int(match.group(2))
             prefix = cfg['container_name'].format('')
             logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
+            # query for all of services in the environment that match cfg['narr_img'] as the image name
+            all_narr_containers = find_narratives(cfg['narr_img'])
+            try:
+                suffix = stack_suffix()
+            except:
+                suffix = ""
             for name in containers.keys():
                 logger.debug({"message": "Examining container: {}".format(name)})
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(prefix):
                     logger.debug({"message": "Matches prefix"})
-                    image_name = find_image(name)
+                    if suffix and name.endswith(suffix):
+                        service_name=name[:-len(suffix)]
+                    else:
+                        service_name = name
+                    logger.debug({"message": "Looking for service named {}".format(service_name)})
                     # Filter out any container that isn't the image type we are reaping
-                    if (image_name is not None and cfg['narr_img'] in image_name):
-                        logger.debug({"message": "Matches image name"})
+                    if (service_name in all_narr_containers):
+                        logger.debug({"message": "Matches running service"})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it.
                         if (containers[name] > 0) or (name not in narr_activity):
                             narr_activity[name] = time.time()
                             logger.debug({"message": "Updated timestamp for "+name})
                     else:
-                        logger.debug({"message": "Skipping because {} not in {}".format(cfg['narr_img'], image_name)})
+                        logger.debug({"message": "Skipping because {} did not match running services".format(service_name)})
                 else:
                     logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, prefix)})
             return(narr_activity)

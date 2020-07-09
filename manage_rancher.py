@@ -437,12 +437,14 @@ def find_prespawned() -> List[str]:
     return(idle_narr)
 
 
-def find_narratives() -> List[str]:
+def find_narratives(image_name: Optional[str] = None) -> List[str]:
     """
     This query hits the endpoint for the stack (cfg['rancher_stack_id']), and returns a list of all the
-    names of services that are have an imageUuid with a match for "docker:"+cfg['image'], this should
-    be any container running narratives
+    names of services that are have an imageUuid with a match for "docker:"+image_name. If no parameter is
+    given (the original function signature), then the default value of cfg['image'] is used.
     """
+    if image_name is None:
+        image_name = cfg['image']
     url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if not r.ok:
