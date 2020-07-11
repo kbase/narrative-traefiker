@@ -447,12 +447,15 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
         image_name = cfg['image']
     url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    imageUuid = "docker:{}".format(image_name)
+    logger.debug({"message": "querying rancher for services matching {}".format(imageUuid)})
+
     if not r.ok:
         raise(Exception("Error querying for services at {}: Response code {}: {}".format(url,
               r.status_code, r.body)))
     results = r.json()
     svcs = results['data']
-    imageUuid = "docker:{}".format(image_name)
+    logger.debug({"message": "results from rancher", "results": svcs})
     svc_names = [svc['name'] for svc in svcs if svc['launchConfig']['imageUuid'] == imageUuid]
     return(svc_names)
 
