@@ -456,7 +456,7 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
     results = r.json()
     svcs = results['data']
     logger.debug({"message": "results from rancher", "results": svcs})
-    svc_names = [svc['name'] for svc in svcs if svc['launchConfig']['imageUuid'] == imageUuid]
+    svc_names = [svc['name'] for svc in svcs if svc['launchConfig']['imageUuid'].startswith(imageUuid)]
     return(svc_names)
 
 
