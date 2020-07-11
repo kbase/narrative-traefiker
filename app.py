@@ -429,6 +429,8 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
             logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
             # query for all of services in the environment that match cfg['narr_img'] as the image name
             all_narr_containers = find_narratives(cfg['narr_img'])
+            logger.debug({"message": "Results from find_narratives", "containers": all_narr_containers})
+
             try:
                 suffix = stack_suffix()
             except:
