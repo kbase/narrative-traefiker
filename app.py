@@ -436,10 +436,10 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
             except:
                 suffix = ""
             for name in containers.keys():
-                logger.debug({"message": "Examining container: {}".format(name)})
+                logger.debug({"message": "Examining traefik metrics entry: {}".format(name)})
                 # Skip any containers that don't match the container prefix, to avoid wasting time on the wrong containers
                 if name.startswith(prefix):
-                    logger.debug({"message": "Matches prefix"})
+                    logger.debug({"message": "Matches prefix {}".format(prefix)})
                     # services from traefik has a suffix which needs to be stripped to match
                     # against results from rancher API
                     if suffix and name.endswith(suffix):
@@ -448,12 +448,12 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                         service_name = name
                     logger.debug({"message": "Looking for service named {}".format(service_name)})
                     if (service_name in all_narr_containers):
-                        logger.debug({"message": "Matches running service"})
+                        logger.debug({"message": "Found {}".format(service_name)})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it.
                         if (containers[name] > 0) or (name not in narr_activity):
                             narr_activity[name] = time.time()
-                            logger.debug({"message": "Updated timestamp for "+name})
+                            logger.debug({"message": "Updated timestamp for {}".format(name)})
                     else:
                         logger.debug({"message": "Skipping because {} did not match running services".format(service_name)})
                 else:
