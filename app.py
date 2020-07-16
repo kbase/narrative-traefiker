@@ -409,7 +409,11 @@ def get_container(dirty_user: str, request: flask.Request, narrative: str) -> fl
 def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
     """
     Looks through the traefik metrics endpoint results to find active websockets for narratives, and returns
-    a dictionary identical in structure to the narr_activity structure used in reaper() .
+    a dictionary identical in structure to the narr_activity structure used in reaper().
+    If services are found that match the proper prefix and image name, but are not in the narr_activity dict,
+    or the traefik metrics add them into the return dict with the current timestamp so that they can be tracked
+    for reaping
+
     """
 
     try:
@@ -466,8 +470,9 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                 logger.debug({"message": ": {} rancher services matched prefix and image, but not in traefik metrics.".format(len(narr_containers))})
                 for name in narr_containers:
                     full_name = name+suffix
-                    logger.debug({"message": "Adding {} to narr_activity".format(full_name)})
-                    narr_activity[full_name] = time.time()
+                    if full_name not in narr_activity:
+                        logger.debug({"message": "Adding {} to narr_activity".format(full_name)})
+                        narr_activity[full_name] = time.time()
             return(narr_activity)
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
