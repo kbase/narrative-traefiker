@@ -445,8 +445,9 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
     """
     if image_name is None:
         image_name = cfg['image']
+    query_params = {'limit': 1000}
     url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
-    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']), params=query_params )
     imageUuid = "docker:{}".format(image_name)
     logger.debug({"message": "querying rancher for services matching {}".format(imageUuid)})
 
