@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.9.8"
+VERSION = "0.9.9"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -429,6 +429,8 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
             logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
             # query for all of services in the environment that match cfg['narr_img'] as the image name
             all_narr_containers = find_narratives(cfg['narr_img'])
+            # filter it down to only containers with the proper prefix
+            narr_containers = { name: all_narr_containers[name] for name in all_narr_containers if name.startswith(prefix)}
             logger.debug({"message": "Results from find_narratives", "containers": all_narr_containers})
 
             try:
@@ -447,17 +449,25 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                     else:
                         service_name = name
                     logger.debug({"message": "Looking for service named {}".format(service_name)})
-                    if (service_name in all_narr_containers):
+                    if (service_name in narr_containers):
                         logger.debug({"message": "Found {}".format(service_name)})
                         # only update timestamp if the container has active websockets or this is the first
                         # time we've seen it.
                         if (containers[name] > 0) or (name not in narr_activity):
                             narr_activity[name] = time.time()
                             logger.debug({"message": "Updated timestamp for {}".format(name)})
+                        # Delete this entry from dictionary so that we can identify any 'leftovers' not in traefik metrics
+                        del narr_containers[service_name]
                     else:
                         logger.debug({"message": "Skipping because {} did not match running services".format(service_name)})
                 else:
                     logger.debug({"message": "Skipped {} because it didn't match prefix {}".format(name, prefix)})
+            if len(narr_containers) > 0:
+                logger.debug({"message": ": {} rancher services matched prefix and image, but not in traefik metrics.".format(len(narr_containers))})
+                for name in narr_containers:
+                    full_name = name+suffix
+                    logger.debug({"message": "Adding {} to narr_activity".format(full_name)})
+                    narr_activity[full_name] = time.time()
             return(narr_activity)
         else:
             raise(Exception("Error querying {}:{} {}".format(cfg['traefik_metrics'], r.status_code, r.text)))
