@@ -434,7 +434,7 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
             # query for all of services in the environment that match cfg['narr_img'] as the image name
             all_narr_containers = find_narratives(cfg['narr_img'])
             # filter it down to only containers with the proper prefix
-            narr_containers = { name: all_narr_containers[name] for name in all_narr_containers if name.startswith(prefix)}
+            narr_containers = [ name for name in all_narr_containers if name.startswith(prefix)]
             logger.debug({"message": "Results from find_narratives", "containers": all_narr_containers})
 
             try:
