@@ -461,7 +461,10 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                             narr_activity[name] = time.time()
                             logger.debug({"message": "Updated timestamp for {}".format(name)})
                         # Delete this entry from dictionary so that we can identify any 'leftovers' not in traefik metrics
-                        del narr_containers[service_name]
+                        try:
+                            narr_containers.remove(service_name)
+                        except ValueError as ex:
+                            logger.errors({"message": "Error deleting {} from narr_containers".format(service_name)})
                     else:
                         logger.debug({"message": "Skipping because {} did not match running services".format(service_name)})
                 else:
