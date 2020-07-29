@@ -519,7 +519,7 @@ def reap_older_prespawn(version: str) -> None:
     """
     try:
         logger.info({"message": "Reaping narratives older than {}".format(version)})
-        narr_names = find_narratives()
+        narr_names = get_prespawned()
         narr_labels = find_narrative_labels(narr_names)
         ver = versiontuple(version)
         for narr in narr_labels.keys():
