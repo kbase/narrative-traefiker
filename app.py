@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.9.9"
+VERSION = "0.9.10"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
