@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.9.9"
+VERSION = "0.9.10"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -519,7 +519,7 @@ def reap_older_prespawn(version: str) -> None:
     """
     try:
         logger.info({"message": "Reaping narratives older than {}".format(version)})
-        narr_names = find_narratives()
+        narr_names = get_prespawned()
         narr_labels = find_narrative_labels(narr_names)
         ver = versiontuple(version)
         for narr in narr_labels.keys():
