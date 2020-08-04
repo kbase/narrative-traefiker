@@ -54,21 +54,3 @@ jobs:
         docker push docker.pkg.github.com/$MY_APP:sha-$MY_SHA
         docker push docker.pkg.github.com/$MY_APP:$GITHUB_HEAD_REF
         docker push docker.pkg.github.com/$MY_APP:$PULL_NUMBER
-
-    # - name: Build and Push to Packages
-    #   if: "!contains(github.event.head_commit.message, 'skip ci')"    
-    #   uses: docker/build-push-action@v1
-    #   with:
-    #     username: ${{ github.actor }}
-    #     password: ${{ secrets.GITHUB_TOKEN }}
-    #     registry: docker.pkg.github.com
-    #     repository: ${{ env.MY_APP }}
-    #     # tag_with_ref: true
-    #     tag_with_sha: true
-    #     # tags: ${{ github.event.number }},${{ env.APP_VERSION_NUM }}
-    #     # tags: ${{ github.event.number }},${{ env.APP_VERSION_NUM }}
-    #     tags: ${{ env.MY_BRANCH}}
-
-# Variable "env.MY_BRANCH" fails. Can only seem to do via PR.
-# The limitations in naming with `docker/build-push-action@v1` aren't worth the 3 lines of code saved.
-# Migrating to stock docker commands to get around the excess of variables we're using currently (and to make branch & PR tagging work the way we need).
