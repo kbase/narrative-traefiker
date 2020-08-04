@@ -3,7 +3,8 @@ name: Docker Build
 on:
   pull_request:
     branches: 
-      - ci-beta
+      - develop
+      - master
 
 jobs:
 
