@@ -49,9 +49,9 @@ jobs:
       run: |
         echo ::set-env name=APP_VERSION_NUM::$(sed -n '/module-version:/{n;p;}' kbase.yml | sed 's/ //g')
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-dev")
-        echo ::set-env name=MY_APP2::${{ github.event.pull_request.repository }} | awk -F / '{print $1}'
+        echo ::set-env name=MY_APP2::$(echo {{ github.event.pull_request.repository }} | awk -F / '{print $1}')
         echo ::set-env name=MY_SHA::$(git rev-parse --short=7 HEAD)
-        echo ::set-env name=MY_SHA2::${{ github.event.pull_request.head.sha }} | cut -c 1-7 
+        echo ::set-env name=MY_SHA2::$(echo {{ github.event.pull_request.head.sha }} | cut -c 1-7 
         echo ::set-env name=MY_BRANCH::$(git branch --show-current)
         echo ::set-env name=PR::$(echo "$GITHUB_REF" | awk -F / '{print $3}')
         echo ::set-env name=PULL_NUMBER::$(echo "$GITHUB_REF" | awk -F / '{print $2,$3}' | sed -e 's/ /_/g')
