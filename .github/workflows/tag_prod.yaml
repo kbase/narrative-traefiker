@@ -46,7 +46,8 @@ jobs:
       if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         echo ::set-env name=TEST_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-dev")
-        echo ::set-env name=MY_APP2::$(echo ${{ github.event.pull_request.repository }} | awk -F / '{print $1}')
+        echo ::set-env name=MY_APP2::${{ github.event.pull_request.repository }} | awk -F / '{print $1}'
+        echo ::set-env name=MY_SHA2::${{ github.event.pull_request.head.sha }} | cut -c 1-7 
         echo ::set-env name=MY_PROD_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-prod")
         echo "HEAD_SHA:" ${{ github.event.pull_request.head.sha }}
         echo "EVENT:" ${{ github.event }}
@@ -63,9 +64,11 @@ jobs:
     - name: Show Test Vars
       run: |
         echo "SHA:" ${{ github.event.pull_request.head.sha }}
+        echo "MY_SHA2:" $MY_SHA2
         echo "PR#:" ${{ github.event.pull_request.number }}
         echo "Origin Branch:" ${{ github.head_ref }}
-        echo "App:" ${{ github.repository }}
+        echo "Repo:" ${{ github.repository }}
+        echo "MY_APP2" $MY_APP2
 
 
 ## Set target Docker image based on new pull request label
