@@ -70,10 +70,10 @@ jobs:
 
     - name: Show Test Vars
       run: |
-      echo "SHA:" ${{ github.event.pull_request.head.sha }}
-      echo "PR#:" ${{ github.event.pull_request.event.number }}
-      echo "Origin Branch:" ${{ github.event.pull_request.head_ref }}
-      echo "App:" $MY_APP2
+        echo "SHA:" ${{ github.event.pull_request.head.sha }}
+        echo "PR#:" ${{ github.event.pull_request.event.number }}
+        echo "Origin Branch:" ${{ github.event.pull_request.head_ref }}
+        echo "App:" $MY_APP2
 
 
     - name: Build and Push to Packages
