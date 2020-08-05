@@ -13,40 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    # - name: Check out GitHub Repo
-    #   if: github.event.action == 'closed' && github.event.pull_request.merged == true
-    #   uses: actions/checkout@v2
-    #   with:
-    #     ref: ${{ github.event.pull_request.head.ref }}
-
-
     - name: Set App Version and Name Vars
       if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
-        echo ::set-env name=MY_SHA::$(git rev-parse --short=7 HEAD)
-        echo ::set-env name=PULL_NUMBER::$(git log | grep $GITHUB_HEAD_REF | awk '{print $4}' | sed -e 's/#/pull_/g')
-        echo ::set-env name=MY_BRANCH::${{ github.event.pull_request.head.ref }}
-        echo ::set-env name=MY_REF::$${{ github.event.pull_request.head.ref }}
-        echo ::set-env name=APP_VERSION_NUM::$(sed -n '/module-version:/{n;p;}' kbase.yml | sed 's/ //g')
         echo ::set-env name=TEST_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-dev")
         echo ::set-env name=MY_PROD_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-prod")
-
-
-## Confirm variables
-    - name: Verify Version and Repo Name
-      if: github.event.action == 'closed' && github.event.pull_request.merged == true
-      run: |
-        echo "Version:" $APP_VERSION_NUM
-        echo "Repo:" $GITHUB_REPOSITORY
-        echo "My SHA:" $MY_SHA
-        echo "Image count prod:" $ISPROD
-        echo "Prod Endpoint:" $MY_PROD_APP
-        echo "Versions:" $VERSIONS
-        echo "Checking Out:" ${{ github.event.pull_request.head.ref }}
-        echo "SHA:" $GITHUB_SHA
-        echo "REF:" $GITHUB_REF
-        echo "HeadRef:" $GITHUB_HEAD_REF
-        echo "PR:" $PULL_NUMBER
 
 
 ## Set target Docker image based on new pull request label
@@ -56,7 +27,7 @@ jobs:
       run: |
         docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
         docker pull docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF
-        docker tag docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF docker.pkg.github.com/$MY_PROD_APP:$GITHUB_HEAD_REF
+        docker tag docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF docker.pkg.github.com/$MY_PROD_APP:$GITHUB_REF
         docker tag docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF docker.pkg.github.com/$MY_PROD_APP:latest
-        docker push docker.pkg.github.com/$MY_PROD_APP:$GITHUB_HEAD_REF
+        docker push docker.pkg.github.com/$MY_PROD_APP:$GITHUB_REF
         docker push docker.pkg.github.com/$MY_PROD_APP:latest
