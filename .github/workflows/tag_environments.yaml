@@ -5,8 +5,7 @@ on:
     types:
       - labeled
     branches: 
-      - develop
-      - master
+      - ci-beta
 
 jobs:
 

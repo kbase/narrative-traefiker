@@ -2,7 +2,7 @@ name: Tag Production Post-Merge
 on:
   pull_request:
     branches:
-    - master
+    - ci-beta
     types:
     - closed
 
