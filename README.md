@@ -3,7 +3,7 @@
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/kbase/narrative-traefiker.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/kbase/narrative-traefiker/alerts/)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/kbase/narrative-traefiker.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/kbase/narrative-traefiker/context:python)
 ---
-Narrative container lifecycle management for Traefik.
+Narrative container lifecycle management for Traefik
 
 This is a replacement for the original OpenRESTy based Lua narrative lifecycle management code. It uses the same underlying reverse proxy service that JupyterHub is moving towards ( https://blog.jupyter.org/introducing-traefikproxy-a-new-jupyterhub-proxy-based-on-traefik-4839e972faf6 )
 
