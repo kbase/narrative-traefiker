@@ -64,8 +64,8 @@ jobs:
       run: |
         echo "SHA:" ${{ github.event.pull_request.head.sha }}
         echo "PR#:" ${{ github.event.pull_request.number }}
-        echo "Origin Branch:" ${{ github.pull_request.head_ref }}
-        echo "App:" ${{ github.event.pull_request.repository}}
+        echo "Origin Branch:" ${{ github.head_ref }}
+        echo "App:" ${{ github.repository }}
 
 
 ## Set target Docker image based on new pull request label
