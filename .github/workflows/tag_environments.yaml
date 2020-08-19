@@ -5,7 +5,7 @@ on:
     types:
       - labeled
     branches: 
-      - ci-beta
+      - master
 
 jobs:
 
