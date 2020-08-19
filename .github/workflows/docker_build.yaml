@@ -3,7 +3,7 @@ name: Docker Build
 on:
   pull_request:
     branches: 
-      - ci-beta
+      - ci-alpha
 
 jobs:
 
@@ -85,10 +85,9 @@ jobs:
         echo "App:" $MY_APP
         docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
         docker build . -t docker.pkg.github.com/$MY_APP
-        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:sha-$MY_SHA
+        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.head.sha }}
         docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:$GITHUB_HEAD_REF
-        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:$PULL_NUMBER
-        docker push docker.pkg.github.com/$MY_APP:latest
-        docker push docker.pkg.github.com/$MY_APP:sha-$MY_SHA
+        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.number }}
+        docker push docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.head.sha }}
         docker push docker.pkg.github.com/$MY_APP:$GITHUB_HEAD_REF
-        docker push docker.pkg.github.com/$MY_APP:$PULL_NUMBER
+        docker push docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.number }}
