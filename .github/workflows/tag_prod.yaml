@@ -77,8 +77,10 @@ jobs:
       if: github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
-        docker pull docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF
-        docker tag docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF docker.pkg.github.com/$MY_PROD_APP:$GITHUB_REF
-        docker tag docker.pkg.github.com/$TEST_APP:$GITHUB_HEAD_REF docker.pkg.github.com/$MY_PROD_APP:latest
-        docker push docker.pkg.github.com/$MY_PROD_APP:$GITHUB_REF
+        docker pull docker.pkg.github.com/$TEST_APP:${{ github.event.pull_request.head.sha }}
+        docker tag docker.pkg.github.com/$TEST_APP:${{ github.event.pull_request.head.sha }} docker.pkg.github.com/$MY_PROD_APP:${{ github.event.pull_request.head.sha }}
+        docker tag docker.pkg.github.com/$TEST_APP:${{ github.event.pull_request.head.sha }} docker.pkg.github.com/$MY_PROD_APP:${{ github.event.pull_request.number }}
+        docker tag docker.pkg.github.com/$TEST_APP:${{ github.event.pull_request.head.sha }} docker.pkg.github.com/$MY_PROD_APP:latest
+        docker push docker.pkg.github.com/$MY_PROD_APP:${{ github.event.pull_request.head.sha }}
+        docker push docker.pkg.github.com/$MY_PROD_APP:${{ github.event.pull_request.number }}
         docker push docker.pkg.github.com/$MY_PROD_APP:latest
