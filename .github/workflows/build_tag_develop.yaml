@@ -48,7 +48,6 @@ jobs:
 
     - name: Set Build Variables
       run: |
-        echo ::set-env name=APP_VERSION_NUM::$(sed -n '/module-version:/{n;p;}' kbase.yml | sed 's/ //g')
         echo ::set-env name=MY_APP::$(echo {{ github.event.pull_request.repository }} | awk -F / '{print $1}'"-test")
         echo ::set-env name=PR::$(echo {{ github.event.pull_request.number }})
         echo ::set-env name=SHA::$(echo {{ github.event.pull_request.head.sha }} | cut -c 1-7)
@@ -60,6 +59,5 @@ jobs:
       run: |
         echo "App:" $MY_APP
         docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
-        docker build . -t docker.pkg.github.com/$MY_APP --label pull=$PR --label date=$DATE --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF
-        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:PR-${{ github.event.pull_request.number }}
-        docker push docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.number }}
+        docker build . -t $MY_APP 
+        docker push MY_APP:PR-$PR
