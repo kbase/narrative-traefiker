@@ -34,12 +34,32 @@ jobs:
         MATRIX_CONTEXT: ${{ toJson(matrix) }}
       run: echo "$MATRIX_CONTEXT"
 
-  # docker_deploy:
-  #   runs-on: ubuntu-latest
-  #   steps:
 
-  #   - name: Check out GitHub Repo
-  #     if: "!contains(github.event.head_commit.message, 'skip ci')"
-  #     with:
-  #       ref: ${{ github.event.pull_request.head.sha }}
-  #     uses: actions/checkout@v2
+  docker_build:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out GitHub Repo
+      if: "!contains(github.event.head_commit.message, 'skip ci')"
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+      uses: actions/checkout@v2
+
+    - name: Set Build Variables
+      run: |
+        echo ::set-env name=APP_VERSION_NUM::$(sed -n '/module-version:/{n;p;}' kbase.yml | sed 's/ //g')
+        echo ::set-env name=MY_APP::$(echo {{ github.event.pull_request.repository }} | awk -F / '{print $1}'"-test")
+        echo ::set-env name=PR::$(echo {{ github.event.pull_request.number }})
+        echo ::set-env name=SHA::$(echo {{ github.event.pull_request.head.sha }} | cut -c 1-7)
+        echo ::set-env name=DATE::$(echo date +"%Y-%m-%d_%H:%M")
+
+
+    - name: Build and Push to Packages
+      if: "!contains(github.event.head_commit.message, 'skip ci')" 
+      run: |
+        echo "App:" $MY_APP
+        docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
+        docker build . -t docker.pkg.github.com/$MY_APP --label pull=$PR --label date=$DATE --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF
+        docker tag docker.pkg.github.com/$MY_APP docker.pkg.github.com/$MY_APP:PR-${{ github.event.pull_request.number }}
+        docker push docker.pkg.github.com/$MY_APP:${{ github.event.pull_request.number }}
