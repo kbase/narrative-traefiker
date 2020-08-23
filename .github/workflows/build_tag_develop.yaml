@@ -50,7 +50,7 @@ jobs:
       run: |
         echo ::set-env name=MY_APP::$(echo {{ github.event.pull_request.repository }} | awk -F / '{print $1}'"-test")
         echo ::set-env name=PR::$(echo {{ github.event.pull_request.number }})
-        echo ::set-env name=SHA::$(echo {{ github.event.pull_request.head.sha }} | cut -c 1-7)
+        echo ::set-env name=SHA::$(echo {{ github.event.pull_request.head.sha }})
         echo ::set-env name=DATE::$(echo date +"%Y-%m-%d_%H:%M")
 
 
