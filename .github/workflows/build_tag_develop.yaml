@@ -57,6 +57,8 @@ jobs:
       env:
         PR: ${{ github.event.pull_request.number }}
         SHA: ${{ github.event.pull_request.head.sha }}
+        DOCKER_ACTOR: ${{ github.actor }}
+        DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       uses: mxschmitt/action-tmate@v2
 
     - name: Build and Push to Packages
@@ -66,6 +68,6 @@ jobs:
         SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo "App:" $MY_APP
-        docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
+        docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
         docker build . -t docker.pkg.github.com/$MY_APP --label pull=$PR --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF
         docker push docker.pkg.github.com/$MY_APP
