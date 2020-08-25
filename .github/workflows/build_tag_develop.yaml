@@ -57,5 +57,5 @@ jobs:
       run: |
         echo "App:" $MY_APP
         docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
-        docker build . -t docker.pkg.github.com/$MY_APP --label pull={{ github.event.pull_request.number }}
+        docker build . -t docker.pkg.github.com/$MY_APP
         docker push docker.pkg.github.com/$MY_APP
