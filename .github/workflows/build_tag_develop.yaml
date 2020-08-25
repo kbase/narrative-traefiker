@@ -52,22 +52,21 @@ jobs:
         SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
-
-    - name: Setup tmate session
-      env:
-        PR: ${{ github.event.pull_request.number }}
-        SHA: ${{ github.event.pull_request.head.sha }}
-        DOCKER_ACTOR: ${{ github.actor }}
-        DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: mxschmitt/action-tmate@v2
+        echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     - name: Build and Push to Packages
       if: "!contains(github.event.head_commit.message, 'skip ci')" 
       env:
         PR: ${{ github.event.pull_request.number }}
-        SHA: ${{ github.event.pull_request.head.sha }}
+        COMMIT: ${{ github.event.pull_request.head.sha }}
+        DOCKER_ACTOR: ${{ github.actor }}
+        DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}}
       run: |
         echo "App:" $MY_APP
         docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
-        docker build . -t docker.pkg.github.com/$MY_APP --label pull=$PR --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF
+        docker build --build-arg BUILD_DATE=$DATE \
+             --build-arg COMMIT=$COMMIT \
+             --build-arg BRANCH=$GITHUB_HEAD_REF \
+             --build-arg PR=$PR
+             -t docker.pkg.github.com/$MY_APP.
         docker push docker.pkg.github.com/$MY_APP
