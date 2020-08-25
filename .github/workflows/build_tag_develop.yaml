@@ -63,6 +63,6 @@ jobs:
         DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}}
       run: |
         echo "App:" $MY_APP
-        docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
-        docker build --build-arg BUILD_DATE=$DATE --build-arg COMMIT=$COMMIT --build-arg BRANCH=$GITHUB_HEAD_REF --build-arg PR=$PR -t docker.pkg.github.com/$MY_APP .
+        docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
+        docker build --label pull=$PR --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF . -t docker.pkg.github.com/$MY_APP
         docker push docker.pkg.github.com/$MY_APP
