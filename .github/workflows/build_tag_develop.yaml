@@ -47,9 +47,11 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Set Build Variables
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
-        echo ::set-env name=PR::$(echo {{ github.event.pull_request.number }})
 
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v2
