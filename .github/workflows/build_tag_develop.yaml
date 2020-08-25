@@ -62,6 +62,7 @@ jobs:
         DOCKER_ACTOR: ${{ github.actor }}
         DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}}
       run: |
-        docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
+        echo "App:" $MY_APP
+        docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} docker.pkg.github.com
         docker build --build-arg BUILD_DATE=$DATE --build-arg COMMIT=$COMMIT --build-arg BRANCH=$GITHUB_HEAD_REF --build-arg PR=$PR -t docker.pkg.github.com/$MY_APP .
         docker push docker.pkg.github.com/$MY_APP
