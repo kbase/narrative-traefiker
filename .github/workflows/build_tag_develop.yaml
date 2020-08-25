@@ -51,7 +51,7 @@ jobs:
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
         echo ::set-env name=PR::$(echo {{ github.event.pull_request.number }})
         echo ::set-env name=SHA::$(echo {{ github.event.pull_request.head.sha }})
-        echo ::set-env name=DATE::$(echo date +"%Y-%m-%d_%H:%M")
+        # echo ::set-env name=DATE::$(echo date +"%Y-%m-%d_%H:%M")
 
 
     - name: Build and Push to Packages
