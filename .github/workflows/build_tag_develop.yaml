@@ -68,5 +68,5 @@ jobs:
              --build-arg COMMIT=$COMMIT \
              --build-arg PR=$PR \
              --build-arg BRANCH=$GITHUB_HEAD_REF \
-             -t docker.pkg.github.com/$MY_APP \
+             -t docker.pkg.github.com/$MY_APP
         docker push docker.pkg.github.com/$MY_APP
