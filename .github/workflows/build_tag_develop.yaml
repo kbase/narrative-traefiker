@@ -60,7 +60,7 @@ jobs:
         PR: ${{ github.event.pull_request.number }}
         COMMIT: ${{ github.event.pull_request.head.sha }}
         DOCKER_ACTOR: ${{ github.actor }}
-        DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}}
+        DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "App:" $MY_APP
         docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
