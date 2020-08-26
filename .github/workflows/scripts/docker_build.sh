@@ -11,7 +11,8 @@ docker login -u jsfillman -p $TOKEN docker.pkg.github.com
 docker build --build-arg BUILD_DATE=$DATE \
              --build-arg COMMIT=$COMMIT \
              --build-arg BRANCH=$BRANCH \
-             --build-arg PR=$PR
-             -t $IMAGE_NAME .
-docker tag $IMAGE_NAME docker.pkg.github.com/jsfillman/$IMAGE_NAME/$IMAGE_NAME"-test"
+             --build-arg PULL_REQUEST=$PR \
+             --label us.kbase.vcs-pull-req=$PR \
+             -t $IMAGE_NAME"-test" .
+docker tag $IMAGE_NAME"-test" docker.pkg.github.com/jsfillman/$IMAGE_NAME/$IMAGE_NAME"-test"
 docker push docker.pkg.github.com/jsfillman/$IMAGE_NAME/$IMAGE_NAME"-test"
