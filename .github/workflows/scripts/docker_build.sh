@@ -1,8 +1,8 @@
 #! /usr/bin/env bash
 
-export DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-export COMMIT=$(echo $SHA | cut -c -7)
+# export DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# export COMMIT=$(echo $SHA | cut -c -7)
 
 docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
 docker build --build-arg BUILD_DATE=$DATE \
