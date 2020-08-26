@@ -12,9 +12,9 @@
 
 - Once development on a new release begins, developers create their short-lived feature branches off of develop.
 - Once their feature is complete, they create a new PR to merge from their feature branch to develop.
-- Once this PR is created, an `<appname>-test:pr#` image is uploaded to GitHub Packages.
+- When the PR is created, an `<appname>-test:pr#` image is autodamically built uploaded to GitHub Packages.
     - Note that this image is intentionally separate from the prod `<appname>` image.
-- (Optional) - Once the `<appname>-test:pr#` image build & upload is complete, some process (PR labeling or a PR comment) "enables" this image to be tested in appdev, ci, and/or next.
+- (Optional) - After the `<appname>-test:pr#` image build & upload is complete, some process (PR labeling or a PR comment) "enables" this image to be tested in appdev, ci, and/or next.
 - Through some process, we test the image in these environments.
     - Note that if we simply use the `<appname>-test:pr#` nomenclature, the above "test environment enabling" may not be needed. 
     - Simply specifying which PR# tag you want to pull in each environment would suffice.
