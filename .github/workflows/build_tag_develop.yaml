@@ -6,6 +6,35 @@ on:
 
 jobs:
 
+  show_env:
+    runs-on: ubuntu-16.04
+    steps:
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+    - name: Dump job context
+      env:
+        JOB_CONTEXT: ${{ toJson(job) }}
+      run: echo "$JOB_CONTEXT"
+    - name: Dump steps context
+      env:
+        STEPS_CONTEXT: ${{ toJson(steps) }}
+      run: echo "$STEPS_CONTEXT"
+    - name: Dump runner context
+      env:
+        RUNNER_CONTEXT: ${{ toJson(runner) }}
+      run: echo "$RUNNER_CONTEXT"
+    - name: Dump strategy context
+      env:
+        STRATEGY_CONTEXT: ${{ toJson(strategy) }}
+      run: echo "$STRATEGY_CONTEXT"
+    - name: Dump matrix context
+      env:
+        MATRIX_CONTEXT: ${{ toJson(matrix) }}
+      run: echo "$MATRIX_CONTEXT"
+
+
   docker_build:
 
     runs-on: ubuntu-latest
@@ -17,9 +46,17 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
       uses: actions/checkout@v2
 
+    - name: Set Build Variables
+      env:
+        PR: ${{ github.event.pull_request.number }}
+        SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
+        echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
     - name: Build and Push to Packages
       if: "!contains(github.event.head_commit.message, 'skip ci')" 
       env:
+
         PR: ${{ github.event.pull_request.number }}
         SHA: ${{ github.event.pull_request.head.sha }}
         DOCKER_ACTOR: ${{ github.actor }}
@@ -27,6 +64,4 @@ jobs:
       run: |
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
         echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
-        echo ::set-env name=BUILD_DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
-        echo ::set-env name=COMMIT::$(echo $SHA | cut -c -7)
         ./.github/workflows/scripts/docker_build.sh
