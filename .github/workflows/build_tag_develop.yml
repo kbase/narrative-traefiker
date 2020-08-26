@@ -1,5 +1,6 @@
 ---
-name: Build & Tag `develop`
+name: Build Test Image
+
 on:
   pull_request:
     branches:
