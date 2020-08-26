@@ -1,3 +1,4 @@
+---
 name: Build & Tag `develop`
 on:
   pull_request:
