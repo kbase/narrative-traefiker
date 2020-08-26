@@ -46,13 +46,6 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
       uses: actions/checkout@v2
 
-    - name: Set Build Variables
-      env:
-        PR: ${{ github.event.pull_request.number }}
-        SHA: ${{ github.event.pull_request.head.sha }}
-      run: |
-        echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
-        echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
     - name: Build and Push to Packages
       if: "!contains(github.event.head_commit.message, 'skip ci')" 
       env:
@@ -63,6 +56,4 @@ jobs:
         DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
-        echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
-        echo ::set-env name=BUILD_DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
         ./.github/workflows/scripts/docker_build.sh
