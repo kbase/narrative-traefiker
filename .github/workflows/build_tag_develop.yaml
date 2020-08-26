@@ -57,12 +57,12 @@ jobs:
     - name: Build and Push to Packages
       if: "!contains(github.event.head_commit.message, 'skip ci')" 
       env:
+
         PR: ${{ github.event.pull_request.number }}
-        COMMIT: ${{ github.event.pull_request.head.sha }}
+        SHA: ${{ github.event.pull_request.head.sha }}
         DOCKER_ACTOR: ${{ github.actor }}
         DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "App:" $MY_APP
-        docker login -u $DOCKER_ACTOR -p $DOCKER_TOKEN docker.pkg.github.com
-        docker build --label pull=$PR --label sha=$SHA --label us.kbase.vcs-branch=$GITHUB_HEAD_REF . -t docker.pkg.github.com/$MY_APP
-        docker push docker.pkg.github.com/$MY_APP
+        echo ::set-env name=MY_APP::$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
+        echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
+        ./.github/workflows/scripts/docker_build.sh
