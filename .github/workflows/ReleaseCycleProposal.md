@@ -2,7 +2,7 @@
 
 (Will start at the end of the cycle, as it oddly makes things more clear)
 
-### Release Cycle Pt1:
+### Release Cycle Pt. 1:
 
 - An official "release" (version bump) is merged from develop to master.
 - The production Docker image `<appname>:latest` is then updated and pushed to GitHub Packages.
