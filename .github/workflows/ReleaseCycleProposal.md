@@ -1,4 +1,4 @@
-## New PR & Testing Process
+## New PR & Testing Process Proposal
 
 (Will start at the end of the cycle, as it oddly makes things more clear)
 
