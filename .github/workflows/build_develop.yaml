@@ -4,6 +4,9 @@ name: Build Test Image
   pull_request:
     branches:
       - develop
+    types:
+      - opened
+      - ready_for_review
 jobs:
   docker_build:
     runs-on: ubuntu-latest
