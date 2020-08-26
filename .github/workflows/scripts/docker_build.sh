@@ -1,5 +1,6 @@
 #! /usr/bin/env bash
 
+export MY_APP=$(echo ${GITHUB_REPOSITORY}/$(echo $GITHUB_REPOSITORY | awk -F / '{print $2}' | sed -e "s/:refs//")"-test")
 export DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 export COMMIT=$(echo $SHA | cut -c -7)

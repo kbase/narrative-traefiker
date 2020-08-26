@@ -2,7 +2,7 @@ name: Build & Tag `develop`
 on:
   pull_request:
     branches:
-    - develop
+      - develop
 
 jobs:
 
@@ -26,7 +26,7 @@ jobs:
         echo ::set-env name=DATE::$(echo date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     - name: Build and Push to Packages
-      if: "!contains(github.event.head_commit.message, 'skip ci')" 
+      if: "!contains(github.event.head_commit.message, 'skip ci')"
       env:
 
         PR: ${{ github.event.pull_request.number }}
