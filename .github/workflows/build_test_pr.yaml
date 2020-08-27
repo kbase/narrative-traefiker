@@ -25,4 +25,4 @@ jobs:
           DOCKER_ACTOR: '${{ github.actor }}'
           DOCKER_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         run: |
-          ./.github/workflows/scripts/docker_build.sh
+          ./.github/workflows/scripts/build_test_pr.sh
