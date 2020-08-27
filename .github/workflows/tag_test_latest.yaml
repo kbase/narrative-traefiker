@@ -1,5 +1,5 @@
 ---
-name: Build Test Image
+name: Tag Latest Test Image
 'on':
   pull_request:
     branches:
