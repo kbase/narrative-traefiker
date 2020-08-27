@@ -3,7 +3,7 @@ name: Build Test Image
 'on':
   pull_request:
     branches:
-    - develop
+    - master
     types:
     - closed
 jobs:
