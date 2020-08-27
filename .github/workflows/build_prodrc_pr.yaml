@@ -1,9 +1,9 @@
 ---
-name: Build Test Image
+name: Build Prod RC Image
 'on':
   pull_request:
     branches:
-    - develop
+    - master
     types:
     - opened
     - synchronize
