@@ -11,5 +11,5 @@ docker build --build-arg BUILD_DATE="$DATE" \
              --build-arg BRANCH="$GITHUB_HEAD_REF" \
              --build-arg PULL_REQUEST="$PR" \
              --label us.kbase.vcs-pull-req="$PR" \
-             -t docker.pkg.github.com/"$MY_APP":"-rc" .
-docker push docker.pkg.github.com/"$MY_APP":"-rc"
+             -t docker.pkg.github.com/"$MY_APP":"rc" .
+docker push docker.pkg.github.com/"$MY_APP":"rc"
