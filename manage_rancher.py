@@ -277,8 +277,10 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["io.rancher.container.start_once"] = u"true"
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
-    rule = u"Host(\"{}\") && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
-    labels["traefik.http.routers." + userid + ".rule"] = rule.format(cfg['hostname'], "/narrative/", cookie)
+    # create a rule for list of hostnames that should match from cfg['hostname']
+    host_rules = " || ".join([ u"Host(\"{}\")".format(hostname) for hostname in cfg['hostname']])
+    remaining_rule = u" && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
+    labels["traefik.http.routers." + userid + ".rule"] = host_rules + remaining_rule.format("/narrative/", cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name

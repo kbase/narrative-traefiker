@@ -16,11 +16,11 @@ from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.9.10"
+VERSION = "0.9.11"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
-       "hostname": u"localhost",                       # hostname used for traefik router rules
+       "hostname": [u"localhost"],                     # hostname used for traefik router rules
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
        "image": u"kbase/narrative:latest",             # image name used for spawning narratives
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
