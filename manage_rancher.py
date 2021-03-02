@@ -279,7 +279,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["traefik.enable"] = u"True"
     labels["session_id"] = session
     # create a rule for list of hostnames that should match from cfg['hostname']
-    host_rules = " || ".join([ u"Host(\"{}\")".format(hostname) for hostname in cfg['hostname']])
+    host_rules = " || ".join([u"Host(\"{}\")".format(hostname) for hostname in cfg['hostname']])
     remaining_rule = u" && PathPrefix(\"{}\") && HeadersRegexp(\"Cookie\",`{}`)"
     labels["traefik.http.routers." + userid + ".rule"] = host_rules + remaining_rule.format("/narrative/", cookie)
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
@@ -289,7 +289,6 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
-
 
     # Attempt to bring up a container, if there is an unrecoverable error, clear the session variable to flag
     # an error state, and overwrite the response with an error response
@@ -351,8 +350,8 @@ def find_service(traefikname: str) -> dict:
     if r.ok:
         results = r.json()
     if len(results['data']) == 0:
-            # Assume that the container has already been reaped and ignore
-            return(None)
+        # Assume that the container has already been reaped and ignore
+        return(None)
     else:
         res = results['data'][0]
         if len(results['data']) > 1:
@@ -363,9 +362,9 @@ def find_service(traefikname: str) -> dict:
                 remove_url = svc['actions']['remove']
                 r = requests.delete(remove_url, auth=(cfg['rancher_user'], cfg['rancher_password']))
                 if r.ok:
-                    logger.info({"message": "Removed duplicate narrative {} {}".format(svc['id'],svc['name'])})
+                    logger.info({"message": "Removed duplicate narrative {} {}".format(svc['id'], svc['name'])})
                 else:
-                    raise(Exception("Problem duplicate narrative {} {} .: response code {}: {}".format(svc['id'],svc['name'], r.status_code, r.text)))
+                    raise(Exception("Problem duplicate narrative {} {} .: response code {}: {}".format(svc['id'], svc['name'], r.status_code, r.text)))
         return(res)
 
 
@@ -378,8 +377,8 @@ def find_stopped_services() -> dict:
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
     if r.ok:
         results = r.json()
-        names = { svc['name']: svc for svc in results['data'] }
-        return( names)
+        names = {svc['name']: svc for svc in results['data']}
+        return(names)
     else:
         raise(Exception("Error querying for stopped services: Response code {}".format(r.status_code)))
 
@@ -450,7 +449,7 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
         image_name = cfg['image']
     query_params = {'limit': 1000}
     url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
-    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']), params=query_params )
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']), params=query_params)
     imageUuid = "docker:{}".format(image_name)
     logger.debug({"message": "querying rancher for services matching {}".format(imageUuid)})
 
