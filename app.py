@@ -40,7 +40,8 @@ cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "rancher_meta": "http://rancher-metadata/",     # URL for the rancher-metadata service (unauthenticated)
        "rancher_env_url": None,                        # rancher enviroment URL (under rancher_url) - self-configured if not set
        "rancher_stack_id": None,                       # rancher stack ID value, used with rancher_env_url - self-configured if not set
-       "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not set, required if rancher_stack_id set
+       "rancher_stack_name": None,                     # rancher stack name value, used with rancher_env_url - self-configured if not
+                                                       # set, required if rancher_stack_id set
        "mode": None,                                   # What orchestation type? "rancher" or "docker"
        "reaper_timeout_secs": 600,                     # How long should a container be idle before it gets reaped?
        "reaper_ipnetwork": u"127.0.0.1/32",            # What IP address/network is allowed to access /reaper/ ?
@@ -77,7 +78,7 @@ reap_narrative = None
 naming_regex = None
 find_stopped_services = None
 stack_suffix = None
- 
+
 
 def merge_env_cfg() -> None:
     """
@@ -116,11 +117,11 @@ def get_db() -> sqlite3.Connection:
     db = getattr(flask.g, '_database', None)
     if db is None:
         db = flask.g._database = sqlite3.connect(cfg['sqlite_reaperdb_path'])
-    db.row_factory=sqlite3.Row
+    db.row_factory = sqlite3.Row
     return db
 
 
-def get_narr_activity_from_db() -> Dict[ str, float ]:
+def get_narr_activity_from_db() -> Dict[str, float]:
     """
     Helper function to get the narrative activity from the database.
     """
@@ -132,15 +133,15 @@ def get_narr_activity_from_db() -> Dict[ str, float ]:
     return narr_activity
 
 
-def save_narr_activity_to_db(narr_activity: Dict[ str, float ]) -> None:
+def save_narr_activity_to_db(narr_activity: Dict[str, float]) -> None:
     conn = get_db()
     cursor = conn.cursor()
     new_activity = list()
     for key in narr_activity:
-        new_activity.append((key, narr_activity[key] ))
+        new_activity.append((key, narr_activity[key]))
     logger.debug({"message": "Saving new narr_activity to database: {}".format(new_activity)})
     cursor.execute("DELETE FROM narr_activity")
-    cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)',new_activity)
+    cursor.executemany('INSERT OR REPLACE INTO narr_activity VALUES (?,?)', new_activity)
     conn.commit()
 
 
@@ -154,6 +155,7 @@ def delete_from_narr_activity_db(servicename: str) -> int:
     num_rows = cursor.rowcount
     conn.commit()
     return num_rows
+
 
 @app.teardown_appcontext
 def close_connection(exception) -> None:
@@ -241,7 +243,7 @@ def setup_app(app: flask.Flask) -> None:
         suffix = stack_suffix()
     else:
         suffix = ""
-    narr_time = { narr+suffix: time.time() for narr in narrs if narr.startswith(prefix) }
+    narr_time = {narr+suffix: time.time() for narr in narrs if narr.startswith(prefix)}
     logger.debug({"message": "Adding containers matching {} to narr_activity".format(prefix), "names": str(list(narr_time.keys()))})
     narr_activity.update(narr_time)
 
@@ -256,7 +258,7 @@ def setup_app(app: flask.Flask) -> None:
             save_narr_activity_to_db(narr_activity)
     except Exception as e:
         logger.critical({"message": "Could not save initial narr_activity data to database: {}".format(repr(e))})
- 
+
 
 def get_prespawned() -> List[str]:
     """
@@ -290,7 +292,7 @@ def prespawn_narrative(num: int) -> None:
                                 "container": "{} of {}".format(a, num), "exception": repr(err)})
 
 
-def reload_msg(narrative: str ) -> flask.Response:
+def reload_msg(narrative: str) -> flask.Response:
     """
     Return a response object that redirects ultimately to the running narrative container,
     by way of the load-narrative page
@@ -355,13 +357,13 @@ def valid_request(request: Dict[str, str]) -> str:
     return(auth_status)
 
 
-def clean_userid( userid: str) -> str:
+def clean_userid(userid: str) -> str:
     """
     Takes a normal KBase userid and converts it into a userid that is okay to embed in a rancher servicename
     """
     hash = hashlib.sha1(userid.encode()).hexdigest()
     hash = hash[:6]
-    clean1 = re.sub('[\._-]+', '-', userid)
+    clean1 = re.sub('[\._-]+', '-', userid)  # noqa: W605
     cleaned = re.sub('-$', '-0', clean1)
     max_len = 62 - len(cfg['container_name']) - len(hash)
     cleaned = "{}-{}".format(cleaned[:max_len], hash)
@@ -421,7 +423,7 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
         if r.status_code == 200:
             body = r.text.split("\n")
             # Find all counters related to websockets - jupyter notebooks rely on websockets for communications
-            websock_re = re.compile('traefik_service_open_connections\{\S+protocol="websocket",service=\"(\S+)@.+ (\d+)')
+            websock_re = re.compile('traefik_service_open_connections\{\S+protocol="websocket",service=\"(\S+)@.+ (\d+)')  # noqa: W605
             # Containers is a dictionary keyed on container name with the value as the # of active web sockets
             containers = dict()
             for line in body:
@@ -434,12 +436,12 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
             # query for all of services in the environment that match cfg['narr_img'] as the image name
             all_narr_containers = find_narratives(cfg['narr_img'])
             # filter it down to only containers with the proper prefix
-            narr_containers = [ name for name in all_narr_containers if name.startswith(prefix)]
+            narr_containers = [name for name in all_narr_containers if name.startswith(prefix)]
             logger.debug({"message": "Results from find_narratives", "containers": all_narr_containers})
 
             try:
                 suffix = stack_suffix()
-            except:
+            except:  # noqa: E722
                 suffix = ""
             for name in containers.keys():
                 logger.debug({"message": "Examining traefik metrics entry: {}".format(name)})
@@ -449,7 +451,7 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                     # services from traefik has a suffix which needs to be stripped to match
                     # against results from rancher API
                     if suffix and name.endswith(suffix):
-                        service_name=name[:-len(suffix)]
+                        service_name = name[:-len(suffix)]
                     else:
                         service_name = name
                     logger.debug({"message": "Looking for service named {}".format(service_name)})
@@ -549,7 +551,7 @@ def reaper() -> int:
         return
 
     reaped = 0
-    log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
+    log_info = {k: datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys()}
     logger.info({"message": "Reaper function running", "narr_activity": str(log_info)})
     try:
         newtimestamps = get_active_traefik_svcs(narr_activity)
@@ -557,7 +559,7 @@ def reaper() -> int:
     except Exception as e:
         logger.critical({"message": "ERROR: {}".format(repr(e))})
         return
-    log_info = { k : datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys() }
+    log_info = {k: datetime.utcfromtimestamp(narr_activity[k]).isoformat() for k in narr_activity.keys()}
     logger.debug({"message": "Activity after updated from traefik: ", "narr_activity": str(log_info)})
 
     now = time.time()
@@ -587,14 +589,14 @@ def reaper() -> int:
         zombies = find_stopped_services().keys()
         logger.debug({"message": "find_stopped_services() called", "num_returned": len(zombies)})
         for name in zombies:
-            if ( cfg['container_name'].format("") in name or cfg['container_name_prespawn'].format("") in name ):
+            if (cfg['container_name'].format("") in name or cfg['container_name_prespawn'].format("") in name):
                 msg = "Container {} identified as zombie container. Reaping.".format(name)
                 logger.info({"message": msg})
                 reap_narrative(name)
                 reaped += 1
             else:
-                msg = "Not reaping started-once container {} , does not match prefixes {} or {} ".format(name,cfg['container_name'],cfg['container_name_prespawn'])
-                logger.info({"message": msg})
+                msg = "Not reaping started-once container {} , does not match prefixes {} or {} "
+                logger.info({"message": msg.format(name, cfg['container_name'], cfg['container_name_prespawn'])})
     except Exception as ex:
         logger.critical({"message": "Exception reaping zombie narratives", "Exception": repr(ex)})
 
@@ -622,6 +624,7 @@ def reaper() -> int:
     if cfg.get("num_prespawn", 0) > 0 and cfg['mode'] == "rancher":
         prespawn_narrative(cfg['num_prespawn'])
     return(reaped)
+
 
 @app.route("/narrative_shutdown/", methods=['DELETE'])
 @app.route("/narrative_shutdown/<path:username>", methods=['DELETE'])
@@ -685,15 +688,15 @@ def narrative_services() -> List[dict]:
     except Exception as e:
         logger.critical({"message": "Could not get data from database for narrative_status, faking last_seen: {}".format(repr(e))})
         narr_activity = None
-    
+
     try:
         suffix = stack_suffix()
-    except:
+    except:  # noqa: E722
         suffix = ""
-    
+
     for name in narr_names:
         if name.startswith(prespawn_pre):
-            info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime() }
+            info = {"state": "queued", "session_id": "*", "instance": name, 'last_seen': time.asctime()}
         else:
             user = name.replace(narr_pre, "", 1)
             info = {"instance": name, "state": "active", "session_id": user}
@@ -703,9 +706,9 @@ def narrative_services() -> List[dict]:
                 except Exception as ex:
                     logger.critical({"message": "Error: adding last_seen field", "error": repr(ex),
                                      "container": name})
-                    info['last_seen'] = time.asctime() # just use current time as last seen
+                    info['last_seen'] = time.asctime()  # just use current time as last seen
             else:
-                    info['last_seen'] = time.asctime()
+                info['last_seen'] = time.asctime()
             try:
                 svc = find_service(name)
                 info['session_key'] = svc['launchConfig']['labels']['session_id']
@@ -740,11 +743,11 @@ def narrative_status():
 
     # Get narr_activity from the database
     # not currently used but may use in the future
-    try:
-        narr_activity = get_narr_activity_from_db()
-    except Exception as e:
-        logger.critical({"message": "Could not get narr_activity data from database: {}".format(repr(e))})
-        return
+    # try:
+    #    narr_activity = get_narr_activity_from_db()
+    # except Exception as e:
+    #    logger.critical({"message": "Could not get narr_activity data from database: {}".format(repr(e))})
+    #    return
 
     resp_doc = {"timestamp": datetime.now().isoformat(), "version": VERSION, "git_hash": cfg['COMMIT_SHA']}
     request = flask.request
@@ -768,18 +771,19 @@ def reaper_endpoint():
     request = flask.request
     logger.info({"message": "Reaper endpoint called from {}".format(request.remote_addr)})
 
-    if (ipaddress.ip_address(request.remote_addr) in ipaddress.ip_network(cfg['reaper_ipnetwork']) ):
+    if (ipaddress.ip_address(request.remote_addr) in ipaddress.ip_network(cfg['reaper_ipnetwork'])):
         try:
             num = reaper()
             resp = flask.Response("Reaper success: {} deleted".format(num))
-            resp.status_code=200
+            resp.status_code = 200
         except Exception as ex:
             resp = flask.Response("Reaper error: {}".format(repr(ex)))
-            resp.status_code=500
+            resp.status_code = 500
     else:
         resp = flask.Response("Reaper error: access denied from IP {}".format(request.remote_addr))
         resp.status_code = 403
     return(resp)
+
 
 @app.route("/narrative/" + '<path:narrative>')
 def hello(narrative):
@@ -807,7 +811,7 @@ if __name__ == '__main__':
 
     setup_app(app)
     if cfg['mode'] is not None:
-            app.run()
+        app.run()
     else:
         logger.critical({"message": "No container management configuration. Please set docker_url or rancher_* environment variable appropriately"})
         raise RuntimeError("Cannot start/check containers.")
