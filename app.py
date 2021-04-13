@@ -10,13 +10,12 @@ import re
 from datetime import datetime
 import json
 import hashlib
-import manage_docker
-import manage_rancher
+from rancher1_handler import rancher1_handler
 from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.9.11"
+VERSION = "0.10.0"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
@@ -78,6 +77,9 @@ reap_narrative = None
 naming_regex = None
 find_stopped_services = None
 stack_suffix = None
+
+# Instance var for the container manager
+container_mgr = None
 
 
 def merge_env_cfg() -> None:
@@ -200,33 +202,23 @@ def setup_app(app: flask.Flask) -> None:
     global naming_regex
     global find_stopped_services
     global stack_suffix
+    global container_mgr
 
     try:
         if (cfg["rancher_url"] is not None):
             cfg['mode'] = "rancher"
-            manage_rancher.setup(cfg, logger)
-            manage_rancher.verify_config(cfg)
-            check_session = manage_rancher.check_session
-            start = manage_rancher.start
-            find_image = manage_rancher.find_image
-            find_service = manage_rancher.find_service
-            find_narratives = manage_rancher.find_narratives
-            find_narrative_labels = manage_rancher.find_narrative_labels
-            reap_narrative = manage_rancher.reap_narrative
+            container_mgr = rancher1_handler(cfg, logger)
+            container_mgr.verify_config(cfg)
+            check_session = container_mgr.check_session
+            start = container_mgr.start
+            find_image = container_mgr.find_image
+            find_service = container_mgr.find_service
+            find_narratives = container_mgr.find_narratives
+            find_narrative_labels = container_mgr.find_narrative_labels
+            reap_narrative = container_mgr.reap_narrative
             naming_regex = "^{}_"
-            find_stopped_services = manage_rancher.find_stopped_services
-            stack_suffix = manage_rancher.stack_suffix
-        else:
-            cfg['mode'] = "docker"
-            manage_docker.setup(cfg, logger)
-            manage_docker.verify_config(cfg)
-            start = manage_docker.start
-            find_image = manage_docker.find_image
-            find_service = manage_docker.find_service
-            find_narratives = manage_docker.find_narratives
-            find_narrative_labels = manage_docker.find_narrative_labels
-            reap_narrative = manage_docker.reap_narrative
-            naming_regex = "^{}$"
+            find_stopped_services = container_mgr.find_stopped_services
+            stack_suffix = container_mgr.stack_suffix
     except Exception as ex:
         logger.critical("Failed validation of docker or rancher configuration")
         raise(ex)
@@ -266,7 +258,7 @@ def get_prespawned() -> List[str]:
     """
     if cfg["mode"] != "rancher":
         raise(NotImplementedError("prespawning only supports rancher mode, current mode={}".format(cfg['mode'])))
-    narratives = manage_rancher.find_narratives()
+    narratives = find_narratives()
     idle_narr = [narr for narr in narratives if cfg['container_name_prespawn'].format("") in narr]
     return(idle_narr)
 
@@ -286,7 +278,7 @@ def prespawn_narrative(num: int) -> None:
             session = random.getrandbits(128).to_bytes(16, "big").hex()
             narr_id = session[0:6]
             try:
-                manage_rancher.start(session, narr_id, True)
+                start(session, narr_id, True)
             except Exception as err:
                 logger.critical({"message": "prespawn_narrative_exception", "session": session,
                                 "container": "{} of {}".format(a, num), "exception": repr(err)})
