@@ -319,7 +319,14 @@ def find_stack() -> Dict[str, str]:
     logger.info("Found stack name: {}".format(stack_name))
 #   set this in info instead, to set all rancher vars in verify_config
 #    cfg['rancher_stack_name'] = stack_name
-    r = requests.get(cfg['rancher_url']+"projects", auth=(cfg['rancher_user'], cfg['rancher_password']))
+    url = cfg['rancher_url']+"projects"
+    logger.info("Querying {} with supplied credentials".format(url))
+    r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']))
+    if not r.ok:
+        msg = "Error querying {}: {} {}".format(url, r.status_code, r.text)
+        logger.error(msg)
+        raise IOError(msg)
+
     resp = r.json()
     x = [env['links']['self'] for env in resp['data'] if env['name'].lower() == env_name.lower()]
     env_endpoint = x[0]
