@@ -306,7 +306,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     if (cfg['image_tag'] is not None):
         imageUuid = "{}:{}".format(cfg['image_name'], cfg['image_tag'])
     else:
-        imageUuid = "{}:{}".format(cfg['image_name'], narr_last_version)
+        imageUuid = "{}:{}".format(cfg['image_name'], latest_narr_version())
     container_config['launchConfig']['imageUuid'] = "docker:{}".format(imageUuid)
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
