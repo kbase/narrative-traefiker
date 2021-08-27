@@ -14,7 +14,8 @@ logger: Optional[logging.Logger] = None
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"hostname": u"localhost",
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/token",
-       "image": u"kbase/narrative:latest",
+       "image_name": u"kbase/narrative",
+       "image_tag": None,
        "es_type": "narrative-traefiker",
        "session_cookie": u"narrative_session",
        "container_name": u"narrative-{}",
@@ -285,7 +286,11 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
-    container_config['launchConfig']['imageUuid'] = "docker:{}".format(cfg['image'])
+    if (cfg['image_tag'] is not None):
+          imageUuid = cfg['image_name'] + ':' + cfg['image_tag']
+    else
+          imageUuid = cfg['image_name'] + ':' + narr_last_version
+    container_config['launchConfig']['imageUuid'] = "docker:{}".format(imageUuid)
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
     container_config['name'] = name
     container_config['stackId'] = cfg['rancher_stack_id']
@@ -294,7 +299,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     # an error state, and overwrite the response with an error response
     try:
         r = requests.post(cfg["rancher_env_url"]+"/service", json=container_config, auth=(cfg["rancher_user"], cfg["rancher_password"]))
-        logger.info({"message": "new_container", "image": cfg['image'], "userid": userid, "service_name": name, "session_id": session,
+        logger.info({"message": "new_container", "image": imageUuid, "userid": userid, "service_name": name, "session_id": session,
                     "client_ip": client_ip})  # request.remote_addr)
         if not r.ok:
             msg = "Error - response code {} while creating new narrative rancher service: {}".format(r.status_code, r.text)
@@ -453,7 +458,7 @@ def find_narratives(image_name: Optional[str] = None) -> List[str]:
     given (the original function signature), then the default value of cfg['image'] is used.
     """
     if image_name is None:
-        image_name = cfg['image']
+        image_name = cfg['image_name']
     query_params = {'limit': 1000}
     url = "{}/stacks/{}/services".format(cfg['rancher_env_url'], cfg['rancher_stack_id'])
     r = requests.get(url, auth=(cfg['rancher_user'], cfg['rancher_password']), params=query_params)
