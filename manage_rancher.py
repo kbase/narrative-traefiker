@@ -62,6 +62,23 @@ def setup(main_cfg: dict, main_logger: logging.Logger) -> None:
                 logger.debug({"message": "Setting narrenv from environment",
                               "key": match.group(1), "value": os.environ[k]})
 
+# to do: figure out how to use method defined in app.py instead
+def latest_narr_version() -> str:
+    """
+    Queries cfg['narrative_revsion'] and returns the version string. Throws exception if there is a problem.
+    """
+    try:
+        r = requests.get(cfg['narrative_version_url'])
+        resp = r.json()
+        if r.status_code == 200:
+            version = resp['version']
+        else:
+            raise(Exception("Error querying {} for version: {} {}".format(cfg['narrative_version_url'],
+                            r.status_code, r.text)))
+    except Exception as err:
+        raise(err)
+    return(version)
+
 
 def check_session(userid: str) -> str:
     """
