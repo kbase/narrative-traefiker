@@ -22,8 +22,8 @@ VERSION = "0.10.1"
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": [u"localhost"],                     # hostname used for traefik router rules
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
-       "image_name": u"kbase/narrative",               # image name (omit :tag!) used for spawning narratives
-       "image_tag": None,                              # image tag; if not None, will be concatenated to image_name for new instances (otherwise narr_last_version will be used)
+       "image_name": u"kbase/narrative",               # image name (omit :tag !) used for spawning narratives
+       "image_tag": None,                              # image tag; if not None, will be concatenated to image_name for new instances (otherwise latest_narr_version() will be used)
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
        "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
        "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
