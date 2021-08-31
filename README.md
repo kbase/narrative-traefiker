@@ -19,7 +19,13 @@ The following environment variables should be in the startup environment:
 * rancher_url - endpoint for the rancher API, this service is currently written to use the "v2-beta" api
 * reaper_ipnetwork - one network that is allowed to access the /reaper/ endpoint
 
-Any config key in the cfg dictionary can be overridden by an environment variable.
+Any config key in the cfg dictionary in app.py can be overridden by an environment variable.  Some useful environment variables are:
+
+* narrative_version_url - a URL that returns the current version of the narrative.
+* image_name - the name of the image to be used to spawn narrative services in Rancher.  DO NOT include a :tag in this name.
+* image_tag - an optional variable to hardcode an image tag to use (omit the ':').  If not specified, defaults to whatever is returned by `narrative_version_url`.  Do not define image_tag with an empty value.
+* auth2 - a valid URL to /api/V2/me
+* status_role - an auth2 role that allows traefiker to return information about running narratives from the /narrative_status/ endpoint for debugging (otherwise only timestamp and traefiker version is returned)
 
 Any environment variable with the prefix "NARRENV_" will be passed to the narrative containers when they are started, with the "NARRENV_" prefix stripped out. For example, NARRENV_testvar="test" will result in testvar="test" being set in the startup for natrratives.
 
