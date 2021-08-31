@@ -23,7 +23,7 @@ Any config key in the cfg dictionary in app.py can be overridden by an environme
 
 * narrative_version_url - a URL that returns the current version of the narrative.
 * image_name - the name of the image to be used to spawn narrative services in Rancher.  DO NOT include a :tag in this name.
-* image_tag - an optional variable to hardcode an image tag to use (omit the ':').  If not specified, defaults to whatever is returned by `narrative_version_url`.  Do not define image_tag with an empty value.
+* image_tag - an optional variable to hardcode an image tag to use (omit the ':').  If not specified, defaults to whatever is returned by `narrative_version_url`.  Do not define image_tag with an empty value or otherwise bad value (e.g., whitespace) or the services traefiker attempts to spin up will break.
 * auth2 - a valid URL to /api/V2/me
 * status_role - an auth2 role that allows traefiker to return information about running narratives from the /narrative_status/ endpoint for debugging (otherwise only timestamp and traefiker version is returned)
 
