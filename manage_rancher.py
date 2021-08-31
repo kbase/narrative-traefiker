@@ -6,6 +6,7 @@ import random
 import flask
 from datetime import datetime
 from typing import Dict, List, Optional
+# to do: move latest_narr_version() so we don't need to import app
 import app
 
 # Module wide logger
@@ -286,9 +287,10 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
-    if (cfg['image_tag'] is not None):
+    if (cfg['image_tag'] is not None and cfg['image_tag'] != ''):
         imageUuid = "{}:{}".format(cfg['image_name'], cfg['image_tag'])
     else:
+        # to do: fix calling latest_narr_version() so we don't need to call the `app` method like this
         imageUuid = "{}:{}".format(cfg['image_name'], app.latest_narr_version())
     container_config['launchConfig']['imageUuid'] = "docker:{}".format(imageUuid)
     container_config['launchConfig']['environment'].update(cfg['narrenv'])
