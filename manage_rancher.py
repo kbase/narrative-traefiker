@@ -287,7 +287,7 @@ def start_new(session: str, userid: str, prespawn: Optional[bool] = False):
     labels["traefik.http.routers." + userid + ".entrypoints"] = u"web"
     container_config['launchConfig']['labels'] = labels
     container_config['launchConfig']['name'] = name
-    if (cfg['image_tag'] is not None and cfg['image_tag'] != ''):
+    if (cfg['image_tag'] is not None and cfg['image_tag'].strip() != ''):
         imageUuid = "{}:{}".format(cfg['image_name'], cfg['image_tag'])
     else:
         # to do: fix calling latest_narr_version() so we don't need to call the `app` method like this
