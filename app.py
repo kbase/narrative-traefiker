@@ -94,7 +94,7 @@ def merge_env_cfg() -> None:
             elif isinstance(cfg[cfg_item], list):
                 cfg[cfg_item] = os.environ[cfg_item].split(',')
             else:
-                cfg[cfg_item] = os.environ[cfg_item]
+                cfg[cfg_item] = os.environ[cfg_item].strip()
             logger.info({"message": "config set",
                          "key": cfg_item, "value": cfg[cfg_item]})
 
