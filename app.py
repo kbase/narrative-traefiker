@@ -248,10 +248,10 @@ def setup_app(app: flask.Flask) -> None:
     narr_activity.update(narr_time)
 
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
-    if (cfg['image_tag'] is not None and cfg['image_tag'].strip() != ''):
-        logger.info({'message': "no image_tag specified, will use version from URL {} for image name {}".format(cfg['narrative_version_url'],cfg['image_name'])})
-    else:
+    if (cfg['image_tag'] is not None and cfg['image_tag'] != ''):
         logger.info({'message': "image_tag specified, will use image {}:{}".format(cfg['image_name'],cfg['image_tag'])})
+    else:
+        logger.info({'message': "no image_tag specified, will use version from URL {} for image name {}".format(cfg['narrative_version_url'],cfg['image_name'])})
     try:
         # need this because we are not in a flask request context here
         with app.app_context():
