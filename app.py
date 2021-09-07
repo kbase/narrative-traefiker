@@ -15,19 +15,19 @@ from typing import Dict, List, Optional
 import ipaddress
 import sqlite3
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 
 # Setup default configuration values, overriden by values from os.environ later
 cfg = {"docker_url": u"unix://var/run/docker.sock",    # path to docker socket
        "hostname": [u"localhost"],                     # hostname used for traefik router rules
        "auth2": u"https://ci.kbase.us/services/auth/api/V2/me",  # url for authenticating tokens
-       "image": u"kbase/narrative:latest",             # image name used for spawning narratives
+       "image_name": u"kbase/narrative",               # image name (omit :tag !) used for spawning narratives
+       "image_tag": None,                              # image tag; if not None, will be concatenated to image_name for new instances (otherwise latest_narr_version() will be used)
        "session_cookie": u"narrative_session",         # name of cookie used for storing session id
        "kbase_cookie": u"kbase_session",               # name of the cookie container kbase auth token
        "container_name": u"narrative-{}",              # python string template for narrative name, userid in param
        "container_name_prespawn": u"narrativepre-{}",  # python string template for pre-spawned narratives, userid in param
        "narrative_version_url": "https://ci.kbase.us/narrative_version",  # url to narrative_version endpoint
-       "narr_img": "kbase/narrative",                  # string used to match images of services/containers for reaping
        "traefik_metrics": "http://traefik:8080/metrics",  # URL of traefik metrics endpoint, api + prometheus must be enabled
        "dock_net": u"narrative-traefiker_default",     # name of the docker network that docker containers should be bound to
        "log_level": logging.DEBUG,                     # loglevel - DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
@@ -96,7 +96,7 @@ def merge_env_cfg() -> None:
             elif isinstance(cfg[cfg_item], list):
                 cfg[cfg_item] = os.environ[cfg_item].split(',')
             else:
-                cfg[cfg_item] = os.environ[cfg_item]
+                cfg[cfg_item] = os.environ[cfg_item].strip()
             logger.info({"message": "config set",
                          "key": cfg_item, "value": cfg[cfg_item]})
 
@@ -240,6 +240,10 @@ def setup_app(app: flask.Flask) -> None:
     narr_activity.update(narr_time)
 
     logger.info({'message': "using sqlite3 database in {}".format(cfg['sqlite_reaperdb_path'])})
+    if (cfg['image_tag'] is not None and cfg['image_tag'] != ''):
+        logger.info({'message': "image_tag specified, will use image {}:{}".format(cfg['image_name'],cfg['image_tag'])})
+    else:
+        logger.info({'message': "no image_tag specified, will use version from URL {} for image name {}".format(cfg['narrative_version_url'],cfg['image_name'])})
     try:
         # need this because we are not in a flask request context here
         with app.app_context():
@@ -424,9 +428,9 @@ def get_active_traefik_svcs(narr_activity) -> Dict[str, time.time]:
                     logger.debug({"message": "websocket line: {}".format(line)})
                     containers[match.group(1)] = int(match.group(2))
             prefix = cfg['container_name'].format('')
-            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['narr_img'])})
-            # query for all of services in the environment that match cfg['narr_img'] as the image name
-            all_narr_containers = find_narratives(cfg['narr_img'])
+            logger.debug({"message": "Looking for containers that with name prefix {} and image name {}".format(prefix, cfg['image_name'])})
+            # query for all of services in the environment that match cfg['image_name'] as the image name
+            all_narr_containers = find_narratives(cfg['image_name'])
             # filter it down to only containers with the proper prefix
             narr_containers = [name for name in all_narr_containers if name.startswith(prefix)]
             logger.debug({"message": "Results from find_narratives", "containers": all_narr_containers})
